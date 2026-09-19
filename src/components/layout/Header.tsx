@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { Locale } from "@/lib/lisa-types";
-import { DooogsLogo } from "./DooogsLogo";
+import { DooogsLogo } from "@/components/layout/DooogsLogo";
 
 const copy = {
   en: {
@@ -38,15 +38,15 @@ export function Header({ locale }: { locale: Locale }) {
       <div className="c-header_bg" />
       <header>
         <div className="c-header">
-          <Link
+          <a
             href={`/${locale}`}
             className="c-header_logo"
             aria-label="dooogs"
           >
             <span className="c-header_logo_inner">
-              <DooogsLogo className="c-header_logo_mark" />
+              <DooogsLogo className="c-header_logo_img" />
             </span>
-          </Link>
+          </a>
 
           <Link href={`/${locale}`} className="c-header_cta">
             {t.talk}

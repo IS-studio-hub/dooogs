@@ -140,9 +140,9 @@ html.is-ready .c-header_bg{transition:background-color .3s cubic-bezier(0.215, 0
 
 .c-header_logo:hover{text-decoration:none}
 
-.c-header_logo_inner{display:inline-block}
+.c-header_logo_inner{display:inline-flex;align-items:center;max-width:min(9.5rem,42vw)}
 
-@media(min-width: 1025px){.c-header_logo_inner{width:8.8666666667rem}}
+@media(min-width: 1025px){.c-header_logo_inner{width:auto;max-width:9.5rem}}
 
 .c-header_icon{position:relative;height:.9em}
 

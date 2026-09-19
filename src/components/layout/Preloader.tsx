@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { DooogsLogo } from "./DooogsLogo";
+import { DooogsLogo } from "@/components/layout/DooogsLogo";
 
 export function Preloader() {
   const [done, setDone] = useState(false);
@@ -37,9 +37,7 @@ export function Preloader() {
       aria-hidden="true"
       id="preloader"
     >
-      <div className="c-preloader_logo">
-        <DooogsLogo className="c-preloader_logo_mark" title="dooogs" invert />
-      </div>
+      <DooogsLogo className="c-preloader_logo c-preloader_logo_img" invert />
     </div>
   );
 }
