@@ -73,113 +73,200 @@ export function LisaCharacter({
     renderer.setClearColor(STAGE, 1);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.05;
+    renderer.toneMappingExposure = 1.12;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     mount.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(STAGE);
+    // Soft depth haze — reads more “set” than flat studio gray
+    scene.fog = new THREE.Fog(STAGE, 4.2, 11);
 
     const pmrem = new THREE.PMREMGenerator(renderer);
-    const env = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    const env = pmrem.fromScene(new RoomEnvironment(), 0.02).texture;
     scene.environment = env;
-    scene.environmentIntensity = 0.62;
+    scene.environmentIntensity = 0.38;
 
     const camera = new THREE.PerspectiveCamera(36, 1, 0.05, 40);
     camera.position.set(0, 1.25, 2.6);
     camera.lookAt(0, 1.1, 0);
 
-    scene.add(new THREE.AmbientLight(0xffffff, 0.28));
-    scene.add(new THREE.HemisphereLight(0xffffff, 0xb0b0b0, 0.4));
+    // ——— Cinematic lighting (key / fill / rim / kick) ———
+    // Keep ambient low so sculpted light reads on fur and face.
+    scene.add(new THREE.AmbientLight(0xc8c4c0, 0.12));
+    scene.add(new THREE.HemisphereLight(0xf5f0ea, 0x6a6a72, 0.22));
 
-    const key = new THREE.RectAreaLight(0xffffff, 8, 2.2, 2.2);
-    key.position.set(1.0, 2.0, 1.3);
-    key.lookAt(0, 1.2, 0);
+    // Softbox key (area) — broad beauty wrap
+    const key = new THREE.RectAreaLight(0xfff2e4, 11, 2.6, 2.0);
+    key.position.set(1.15, 2.15, 1.55);
+    key.lookAt(0, 1.15, 0);
     scene.add(key);
 
-    const fill = new THREE.RectAreaLight(0xf2f2f2, 3.2, 2.4, 1.8);
-    fill.position.set(-1.2, 1.5, 1.0);
-    fill.lookAt(0, 1.2, 0);
+    // Shadow-casting hard key — gives real contact & cheek form
+    const keySun = new THREE.DirectionalLight(0xffe8d2, 1.35);
+    keySun.position.set(1.6, 2.8, 1.9);
+    keySun.castShadow = true;
+    keySun.shadow.mapSize.set(2048, 2048);
+    keySun.shadow.camera.near = 0.5;
+    keySun.shadow.camera.far = 12;
+    keySun.shadow.camera.left = -2.5;
+    keySun.shadow.camera.right = 2.5;
+    keySun.shadow.camera.top = 2.5;
+    keySun.shadow.camera.bottom = -2.5;
+    keySun.shadow.bias = -0.00025;
+    keySun.shadow.normalBias = 0.03;
+    keySun.shadow.radius = 3.5;
+    scene.add(keySun);
+    keySun.target.position.set(0, 1.2, 0);
+    scene.add(keySun.target);
+
+    // Cool fill — camera left, low so key stays dominant
+    const fill = new THREE.RectAreaLight(0xdde6f5, 2.4, 2.8, 2.2);
+    fill.position.set(-1.55, 1.35, 1.25);
+    fill.lookAt(0, 1.1, 0);
     scene.add(fill);
 
-    const rim = new THREE.DirectionalLight(0xffffff, 0.4);
-    rim.position.set(-0.2, 2.2, -1.6);
+    // Rim / hair light — cool backlight for silhouette separation
+    const rim = new THREE.SpotLight(0xb8d4ff, 6.5, 14, 0.55, 0.45, 1.1);
+    rim.position.set(-0.85, 2.55, -2.1);
+    rim.target.position.set(0, 1.25, 0);
+    rim.castShadow = false;
     scene.add(rim);
+    scene.add(rim.target);
 
-    // Live studio accents — soft movers that keep the bust “alive”
-    const warm = new THREE.PointLight(0xffe0c2, 0.7, 6, 2);
-    warm.position.set(0.9, 1.55, 1.4);
+    // Warm kicker — camera-right edge catch on muzzle / ear
+    const kick = new THREE.SpotLight(0xffc9a0, 3.8, 10, 0.48, 0.55, 1.25);
+    kick.position.set(1.9, 1.7, -0.35);
+    kick.target.position.set(0, 1.2, 0);
+    scene.add(kick);
+    scene.add(kick.target);
+
+    // Subtle bounce from below (floor reflection feel)
+    const bounce = new THREE.RectAreaLight(0xffffff, 1.4, 3.2, 1.2);
+    bounce.position.set(0.1, 0.15, 1.1);
+    bounce.lookAt(0, 1.2, 0);
+    scene.add(bounce);
+
+    // Practical eye catch — tiny specular sparkle
+    const eyeCatch = new THREE.PointLight(0xfff6ea, 0.55, 3.5, 2);
+    eyeCatch.position.set(0.25, 1.55, 1.85);
+    scene.add(eyeCatch);
+
+    // Warm + cool “alive” accents that drift with mouse
+    const warm = new THREE.PointLight(0xffd7b0, 0.85, 5.5, 2);
+    warm.position.set(0.95, 1.6, 1.35);
     scene.add(warm);
 
-    const cool = new THREE.PointLight(0xd8e8ff, 0.55, 6, 2);
-    cool.position.set(-1.0, 1.35, 1.15);
+    const cool = new THREE.PointLight(0xc5d9ff, 0.7, 5.5, 2);
+    cool.position.set(-1.05, 1.4, 1.1);
     scene.add(cool);
 
-    const cheek = new THREE.SpotLight(0xffffff, 1.0, 7, 0.42, 0.55, 1.4);
-    cheek.position.set(0.35, 2.1, 1.8);
+    const cheek = new THREE.SpotLight(0xfff0e0, 1.35, 7, 0.38, 0.6, 1.35);
+    cheek.position.set(0.45, 2.15, 1.85);
     cheek.target.position.set(0, 1.2, 0);
     scene.add(cheek);
     scene.add(cheek.target);
+
+    // Invisible floor for cinematic contact shadows
+    const ground = new THREE.Mesh(
+      new THREE.PlaneGeometry(10, 10),
+      new THREE.ShadowMaterial({ opacity: 0.28, color: 0x000000 })
+    );
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.y = -0.05;
+    ground.receiveShadow = true;
+    scene.add(ground);
 
     const keyHome = key.position.clone();
     const fillHome = fill.position.clone();
     const warmHome = warm.position.clone();
     const coolHome = cool.position.clone();
     const cheekHome = cheek.position.clone();
+    const rimHome = rim.position.clone();
+    const kickHome = kick.position.clone();
+    const keySunHome = keySun.position.clone();
     const lightAim = new THREE.Vector3(0, 1.2, 0);
     const tmpAim = new THREE.Vector3();
 
     const applyLiveLights = (t: number) => {
-      const breath = 0.5 + 0.5 * Math.sin(t * 0.7);
-      const breath2 = 0.5 + 0.5 * Math.sin(t * 0.95 + 1.2);
+      const breath = 0.5 + 0.5 * Math.sin(t * 0.55);
+      const breath2 = 0.5 + 0.5 * Math.sin(t * 0.82 + 1.1);
+      const breath3 = 0.5 + 0.5 * Math.sin(t * 0.4 + 2.4);
       const mx = mouseNdcSmooth.x;
       const my = mouseNdcSmooth.y;
 
-      key.intensity = 6.4 + breath * 1.1 + Math.abs(mx) * 0.4;
-      fill.intensity = 2.5 + breath2 * 0.7;
-      rim.intensity = 0.3 + breath * 0.1;
-      warm.intensity = 0.55 + breath2 * 0.35 + Math.max(0, mx) * 0.25;
-      cool.intensity = 0.45 + breath * 0.3 + Math.max(0, -mx) * 0.25;
-      cheek.intensity = 0.85 + breath * 0.35;
+      key.intensity = 9.5 + breath * 1.6 + Math.abs(mx) * 0.55;
+      keySun.intensity = 1.15 + breath * 0.25 + Math.max(0, mx) * 0.2;
+      fill.intensity = 1.9 + breath2 * 0.55;
+      rim.intensity = 5.2 + breath3 * 1.4 + Math.max(0, -mx) * 0.8;
+      kick.intensity = 3.0 + breath * 0.9 + Math.max(0, mx) * 0.7;
+      bounce.intensity = 1.1 + breath2 * 0.25;
+      eyeCatch.intensity = 0.4 + breath * 0.25;
+      warm.intensity = 0.65 + breath2 * 0.4 + Math.max(0, mx) * 0.3;
+      cool.intensity = 0.5 + breath * 0.35 + Math.max(0, -mx) * 0.35;
+      cheek.intensity = 1.05 + breath * 0.4;
 
       key.position.set(
-        keyHome.x + Math.sin(t * 0.35) * 0.18 + mx * 0.22,
-        keyHome.y + Math.sin(t * 0.55 + 0.4) * 0.08 + my * 0.1,
-        keyHome.z + Math.cos(t * 0.35) * 0.1
+        keyHome.x + Math.sin(t * 0.28) * 0.14 + mx * 0.2,
+        keyHome.y + Math.sin(t * 0.45 + 0.4) * 0.07 + my * 0.08,
+        keyHome.z + Math.cos(t * 0.28) * 0.08
+      );
+      keySun.position.set(
+        keySunHome.x + mx * 0.25,
+        keySunHome.y + my * 0.1,
+        keySunHome.z
       );
       fill.position.set(
-        fillHome.x + Math.sin(t * 0.28 + 1.5) * 0.14 + mx * 0.12,
-        fillHome.y + Math.cos(t * 0.4) * 0.07 + my * 0.06,
-        fillHome.z + Math.sin(t * 0.33) * 0.08
+        fillHome.x + Math.sin(t * 0.24 + 1.5) * 0.12 + mx * 0.1,
+        fillHome.y + Math.cos(t * 0.35) * 0.06 + my * 0.05,
+        fillHome.z + Math.sin(t * 0.3) * 0.07
+      );
+      rim.position.set(
+        rimHome.x + Math.sin(t * 0.22) * 0.12 - mx * 0.15,
+        rimHome.y + Math.cos(t * 0.3) * 0.08,
+        rimHome.z
+      );
+      kick.position.set(
+        kickHome.x + Math.cos(t * 0.26) * 0.1 + mx * 0.18,
+        kickHome.y + Math.sin(t * 0.33) * 0.08,
+        kickHome.z
       );
       warm.position.set(
-        warmHome.x + Math.sin(t * 0.6) * 0.25 + mx * 0.3,
-        warmHome.y + Math.sin(t * 0.8 + 0.7) * 0.12,
-        warmHome.z + Math.cos(t * 0.55) * 0.18
+        warmHome.x + Math.sin(t * 0.5) * 0.2 + mx * 0.28,
+        warmHome.y + Math.sin(t * 0.7 + 0.7) * 0.1,
+        warmHome.z + Math.cos(t * 0.48) * 0.14
       );
       cool.position.set(
-        coolHome.x + Math.cos(t * 0.5) * 0.22 + mx * 0.2,
-        coolHome.y + Math.sin(t * 0.65 + 1.1) * 0.1,
-        coolHome.z + Math.sin(t * 0.48) * 0.16
+        coolHome.x + Math.cos(t * 0.42) * 0.18 + mx * 0.18,
+        coolHome.y + Math.sin(t * 0.55 + 1.1) * 0.09,
+        coolHome.z + Math.sin(t * 0.4) * 0.12
       );
       cheek.position.set(
-        cheekHome.x + mx * 0.45 + Math.sin(t * 0.45) * 0.12,
-        cheekHome.y + my * 0.15,
+        cheekHome.x + mx * 0.4 + Math.sin(t * 0.4) * 0.1,
+        cheekHome.y + my * 0.12,
         cheekHome.z
       );
+      eyeCatch.position.set(0.2 + mx * 0.15, 1.52 + my * 0.05, 1.85);
 
       tmpAim.copy(lightAim);
-      tmpAim.x += mx * 0.25;
+      tmpAim.x += mx * 0.28;
       tmpAim.y += my * 0.12;
       key.lookAt(tmpAim);
       fill.lookAt(tmpAim);
       cheek.target.position.copy(tmpAim);
       cheek.target.updateMatrixWorld();
+      rim.target.position.copy(tmpAim);
+      rim.target.updateMatrixWorld();
+      kick.target.position.copy(tmpAim);
+      kick.target.updateMatrixWorld();
+      keySun.target.position.copy(tmpAim);
+      keySun.target.updateMatrixWorld();
 
-      // Tiny exposure drift so the stage never feels frozen
-      renderer.toneMappingExposure = 0.98 + breath * 0.04 + Math.abs(mx) * 0.015;
-      scene.environmentIntensity = 0.52 + breath2 * 0.08;
+      // Gentle exposure pulse — filmic, not disco
+      renderer.toneMappingExposure =
+        1.05 + breath * 0.05 + Math.abs(mx) * 0.02;
+      scene.environmentIntensity = 0.32 + breath2 * 0.08;
     };
 
     const root = new THREE.Group();
@@ -316,9 +403,9 @@ export function LisaCharacter({
           for (const mat of mats) {
             const std = mat as THREE.MeshStandardMaterial;
             if (std.map) std.map.colorSpace = THREE.SRGBColorSpace;
-            if ("envMapIntensity" in std) std.envMapIntensity = 0.55;
+            if ("envMapIntensity" in std) std.envMapIntensity = 0.42;
             if ("metalness" in std && std.metalness > 0.35) std.metalness = 0.05;
-            if ("roughness" in std && std.roughness > 0.9) std.roughness = 0.72;
+            if ("roughness" in std && std.roughness > 0.9) std.roughness = 0.68;
             // Hide open mouth/nose cavity interiors (DoubleSide looked like a face tear).
             std.side = THREE.FrontSide;
             std.needsUpdate = true;
@@ -327,6 +414,10 @@ export function LisaCharacter({
 
         root.add(model);
         root.updateMatrixWorld(true);
+
+        // Sit the shadow floor under the paws
+        box.setFromObject(model);
+        ground.position.y = box.min.y + 0.01;
 
         const chest = findBone(model, ["chest"]);
         const n1 = findBone(model, ["neck_01"]);
