@@ -575,12 +575,6 @@ html:not(.has-menu-opened) .c-menu {
     font-size: 0.92rem;
   }
 
-  .c-ginny-ask {
-    width: 100%;
-    /* max-width: min(36rem, 100%); */
-    margin-top: 1.1rem;
-  }
-
   .c-ginny-ask_field {
     padding: 0.3rem 0.35rem 0.3rem 1.05rem;
     background: #fff;
@@ -909,7 +903,20 @@ html:not(.has-menu-opened) .c-menu {
 .c-ginny-ask {
   margin-top: 1.1rem;
   width: 100%;
-  max-width: min(36rem, 100%);
+}
+
+@media (min-width: 1024px) {
+  .c-ginny-ask {
+    max-width: min(36rem, 100%);
+  }
+}
+
+@media (max-width: 1023px) {
+  .c-ginny-ask {
+    width: 100%;
+    /* max-width: min(36rem, 100%); */
+    margin-top: 1.1rem;
+  }
 }
 
 .c-ginny-ask_field {
