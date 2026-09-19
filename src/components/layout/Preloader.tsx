@@ -37,7 +37,7 @@ export function Preloader() {
       aria-hidden="true"
       id="preloader"
     >
-      <DooogsLogo className="c-preloader_logo c-preloader_logo_img" badge />
+      <DooogsLogo className="c-preloader_logo c-preloader_logo_img" invert />
     </div>
   );
 }
