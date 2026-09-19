@@ -683,8 +683,9 @@ html:not(.has-menu-opened) .c-menu {
 }
 
 .c-lisa_back svg {
-  width: 45%;
-  height: 45%;
+  width: 48%;
+  height: 48%;
+  overflow: visible;
 }
 
 .c-lisa_sound {

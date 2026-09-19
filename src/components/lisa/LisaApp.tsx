@@ -500,15 +500,16 @@ export function LisaApp({
         >
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path
-              d="M9.5 7.5A5.5 5.5 0 1 1 7 16.2"
+              d="M9 15 4 10l5-5"
               stroke="currentColor"
-              strokeWidth="1.8"
+              strokeWidth="2"
               strokeLinecap="round"
+              strokeLinejoin="round"
             />
             <path
-              d="M9 4.5v4H5"
+              d="M4 10h9.5a5.5 5.5 0 0 1 0 11H12"
               stroke="currentColor"
-              strokeWidth="1.8"
+              strokeWidth="2"
               strokeLinecap="round"
               strokeLinejoin="round"
             />
