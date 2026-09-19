@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { Locale } from "@/lib/lisa-types";
+import { DooogsLogo } from "./DooogsLogo";
 
 const copy = {
   en: {
@@ -37,28 +38,15 @@ export function Header({ locale }: { locale: Locale }) {
       <div className="c-header_bg" />
       <header>
         <div className="c-header">
-          <a
-            href="https://drinkginny.com/"
+          <Link
+            href={`/${locale}`}
             className="c-header_logo"
-            target="_blank"
-            rel="noopener noreferrer"
+            aria-label="dooogs"
           >
-            <span className="c-header_logo_inner">Ginny</span>
-          </a>
-
-          <span aria-hidden="true" className="c-header_icon">
-            <svg width="28" height="14" viewBox="0 0 28 14" fill="none">
-              <path
-                d="M2 12C6 4 11 2 14 2s8 2 12 10"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-              />
-              <circle cx="8" cy="11" r="1.5" fill="currentColor" />
-              <circle cx="14" cy="11" r="1.5" fill="currentColor" />
-              <circle cx="20" cy="11" r="1.5" fill="currentColor" />
-            </svg>
-          </span>
+            <span className="c-header_logo_inner">
+              <DooogsLogo className="c-header_logo_mark" />
+            </span>
+          </Link>
 
           <Link href={`/${locale}`} className="c-header_cta">
             {t.talk}
