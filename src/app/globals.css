@@ -621,20 +621,6 @@ html:not(.has-menu-opened) .c-menu {
     width: 1.05rem;
     height: 1.05rem;
   }
-
-  .c-lisa_sound {
-    bottom: calc(var(--lisa-sheet-h, 9.5rem) + 0.85rem);
-    transition: bottom 0.35s var(--ease-out);
-  }
-
-  .c-lisa.is-compact .c-lisa_sound {
-    bottom: calc(var(--lisa-sheet-h, 9.5rem) + 0.85rem);
-  }
-
-  .c-lisa_back {
-    bottom: calc(var(--lisa-sheet-h, 9.5rem) + 0.85rem);
-    transition: bottom 0.35s var(--ease-out);
-  }
 }
 
 @media (min-width: 1024px) {
@@ -793,6 +779,17 @@ html:not(.has-menu-opened) .c-menu {
 
 .c-lisa_sound.-muted .c-lisa_sound-icon.-off svg {
   fill: var(--color);
+}
+
+/* Mobile: keep back + sound floating just above the bottom sheet */
+@media (max-width: 1023px) {
+  .c-lisa .c-lisa_back,
+  .c-lisa .c-lisa_sound,
+  .c-lisa.is-compact .c-lisa_sound {
+    bottom: calc(var(--lisa-sheet-h, 9.5rem) + 0.85rem);
+    transition: bottom 0.35s var(--ease-out);
+    z-index: 830;
+  }
 }
 
 /* Steps */

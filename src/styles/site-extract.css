@@ -236,7 +236,7 @@ html:not(.has-menu-opened) .c-menu{display:none}
 
 .c-lisa_sound.-muted:before{transform:translate3d(0, 100%, 0)}
 
-@media(max-width: 1024px){.c-lisa_sound{bottom:calc(50% + 8px + 1.3333333333rem)}}
+@media(max-width: 1024px){.c-lisa_sound{bottom:calc(var(--lisa-sheet-h, 9.5rem) + 0.85rem)}}
 
 .c-lisa_sound-icon{position:relative;z-index:10;display:flex;align-items:center;justify-content:center}
 
