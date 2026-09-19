@@ -262,8 +262,9 @@ video {
 
 .c-preloader_logo_img {
   display: block;
-  width: min(280px, 72vw);
+  width: min(220px, 55vw);
   height: auto;
+  border-radius: 0;
 }
 
 @keyframes preloaderAppear {
@@ -314,13 +315,14 @@ video {
   display: inline-flex;
   align-items: center;
   width: auto;
-  max-width: min(9.5rem, 42vw);
+  max-width: min(3.4rem, 14vw);
 }
 
 .c-header_logo_img {
   display: block;
   width: 100%;
   height: auto;
+  border-radius: 0;
 }
 
 .c-header_icon {
