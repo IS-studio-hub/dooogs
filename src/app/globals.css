@@ -576,8 +576,9 @@ html:not(.has-menu-opened) .c-menu {
   }
 
   .c-ginny-ask {
-    margin-top: 0;
-    max-width: none;
+    width: 100%;
+    /* max-width: min(36rem, 100%); */
+    margin-top: 1.1rem;
   }
 
   .c-ginny-ask_field {
@@ -877,8 +878,19 @@ html:not(.has-menu-opened) .c-menu {
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.3s var(--ease-out), transform 0.3s var(--ease-out);
-  padding-bottom: 10.6666666667rem;
   transform: translate3d(0, 1.3333333333rem, 0);
+}
+
+@media (min-width: 1025px) {
+  .c-lisa-step_content {
+    opacity: 0;
+    pointer-events: none;
+    width: 100%;
+    transition: opacity 0.3s var(--ease-out), transform 0.3s var(--ease-out);
+    margin-top: 1.33333rem;
+    /* padding-bottom: 10.6667rem; */
+    transform: translateY(1.33333rem);
+  }
 }
 
 .c-lisa-step.-expanded .c-lisa-step_content {
