@@ -1,0 +1,60 @@
+{
+  "intro": {
+    "progress": 0.08,
+    "next": "chat",
+    "isCompact": true,
+    "dialog": {
+      "list": {
+        "ginny.intro.1": "Salut — moi c’est Ginny,<br>ta guide des chiens et des races du monde.",
+        "ginny.intro.2": "Hey! Je suis Ginny. Pose-moi n’importe quelle question sur les chiens.",
+        "ginny.intro.3": "Je suis Ginny — histoire, caractère, soins, et où rencontrer chaque race."
+      }
+    },
+    "media": []
+  },
+  "chat": {
+    "progress": 0.2,
+    "dialog": {
+      "list": {
+        "ginny.chat.1": "Que veux-tu savoir? Choisis une suggestion, écris, ou appuie sur le micro pour me parler.",
+        "ginny.chat.2": "Je suis là pour races, comportement, alimentation, éducation, toilettage — et les digressions qui reviennent aux chiens.",
+        "ginny.chat.3": "Demande librement, ou tape une suggestion. Les questions de suivi sont les bienvenues — je garde le fil."
+      }
+    },
+    "choices": [
+      {
+        "label": "Parle-moi des caniches",
+        "modelUpdate": { "key": "ask", "value": "Parle-moi des caniches — histoire, caractère, soins, et où les voir." }
+      },
+      {
+        "label": "Aide-moi à choisir une race",
+        "modelUpdate": { "key": "ask", "value": "Aide-moi à choisir une race de chien pour mon mode de vie. Pose-moi d’abord quelques questions." }
+      },
+      {
+        "label": "Aliments interdits aux chiens",
+        "modelUpdate": { "key": "ask", "value": "Quels aliments sont toxiques ou dangereux pour les chiens, et pourquoi?" }
+      },
+      {
+        "label": "Le berger allemand en détail",
+        "modelUpdate": { "key": "ask", "value": "Fais un grand tour du berger allemand: origines, caractère, besoins, défis, et où en apprendre plus." }
+      }
+    ],
+    "media": []
+  },
+  "form-error": {
+    "progress": 1,
+    "showErrors": true,
+    "dialog": {
+      "list": {
+        "ginny.form-error.1": "Oups — un petit bug. Réessaie ta question!"
+      }
+    },
+    "choices": [
+      {
+        "label": "Retour au chat",
+        "emit": "form-retry"
+      }
+    ],
+    "media": []
+  }
+}
