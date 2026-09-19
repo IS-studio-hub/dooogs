@@ -212,17 +212,19 @@ export function LisaCharacter({
     let smoothYaw = 0;
     let smoothPitch = 0;
 
+    let framePortraitFn: (() => void) | null = null;
+
     const resize = () => {
       const w = mount.clientWidth || window.innerWidth;
       const h = mount.clientHeight || window.innerHeight;
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
       renderer.setSize(w, h, false);
       camera.aspect = w / Math.max(h, 1);
-      camera.fov = w < 1000 ? 44 : 36;
       camera.updateProjectionMatrix();
       renderer.domElement.style.width = "100%";
       renderer.domElement.style.height = "100%";
       renderer.domElement.style.display = "block";
+      framePortraitFn?.();
     };
     resize();
 
@@ -238,6 +240,8 @@ export function LisaCharacter({
     };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("resize", resize);
+    const ro = new ResizeObserver(() => resize());
+    ro.observe(mount);
 
     const applyGaze = (dt: number) => {
       if (!joints.length) return;
@@ -372,19 +376,20 @@ export function LisaCharacter({
 
           const lookY = box.min.y + size.y * 0.59;
           headWorld.set(center.x, lookY, center.z);
-          // Closer + look slightly left of subject → larger, shifted right on screen
           const dist = Math.max(2.25, size.y * 1.45);
-          const screenShiftX = 0.48;
-          camera.fov = 34;
+          const mobile = (mount.clientWidth || window.innerWidth) < 1024;
+          // Desktop: shift dog right for left-column UI. Mobile: center in stage.
+          const screenShiftX = mobile ? 0 : 0.48;
+          camera.fov = mobile ? 38 : 34;
           camera.updateProjectionMatrix();
           camera.position.set(
             headWorld.x,
-            headWorld.y + 0.025,
-            headWorld.z + dist
+            headWorld.y + (mobile ? 0.04 : 0.025),
+            headWorld.z + dist * (mobile ? 1.05 : 1)
           );
           camera.lookAt(
             headWorld.x - screenShiftX,
-            headWorld.y - 0.025,
+            headWorld.y - (mobile ? 0.04 : 0.025),
             headWorld.z
           );
           lightAim.set(headWorld.x, headWorld.y, headWorld.z);
@@ -393,6 +398,7 @@ export function LisaCharacter({
           cheek.target.position.copy(lightAim);
           framed = true;
         };
+        framePortraitFn = framePortrait;
 
         requestAnimationFrame(() => {
           framePortrait();
@@ -445,6 +451,7 @@ export function LisaCharacter({
       cancelAnimationFrame(raf);
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("resize", resize);
+      ro.disconnect();
       if (renderer.domElement.parentElement === mount) {
         mount.removeChild(renderer.domElement);
       }

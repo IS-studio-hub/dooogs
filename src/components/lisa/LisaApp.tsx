@@ -1,7 +1,7 @@
 "use client";
 
 import clsx from "clsx";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import {
   pickDialog,
   resolveChoices,
@@ -48,6 +48,7 @@ export function LisaApp({
   const [aiSuggestions, setAiSuggestions] = useState<string[] | null>(null);
   const [thinking, setThinking] = useState(false);
   const [listening, setListening] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
   const voiceStopRef = useRef<(() => void) | null>(null);
   const autoTimer = useRef<number | null>(null);
@@ -55,6 +56,7 @@ export function LisaApp({
   const dialogHtmlRef = useRef("");
   const stepIdRef = useRef(stepId);
   const askingRef = useRef(false);
+  const sheetDrag = useRef<{ y: number; open: boolean } | null>(null);
 
   const step = content[stepId];
 
@@ -279,6 +281,10 @@ export function LisaApp({
     typingLock.current = true;
     setTypingDone(true);
     setExpanded(true);
+    // Open sheet on mobile once content is ready (suggestions / reply)
+    if (typeof window !== "undefined" && window.innerWidth <= 1023) {
+      setSheetOpen(true);
+    }
 
     if (step?.next && stepId !== "chat" && !thinking) {
       const delay = 1200;
@@ -348,12 +354,35 @@ export function LisaApp({
       onTypingComplete();
       return;
     }
+    if (typeof window !== "undefined" && window.innerWidth <= 1023) {
+      setSheetOpen(true);
+      return;
+    }
     if (step?.next && stepId !== "chat" && !thinking) {
       goTo(step.next);
     }
   }
 
+  function onSheetPointerDown(e: ReactPointerEvent<HTMLButtonElement>) {
+    if (typeof window !== "undefined" && window.innerWidth > 1023) return;
+    sheetDrag.current = { y: e.clientY, open: sheetOpen };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+
+  function onSheetPointerMove(e: ReactPointerEvent<HTMLButtonElement>) {
+    const drag = sheetDrag.current;
+    if (!drag) return;
+    const dy = drag.y - e.clientY;
+    if (!drag.open && dy > 36) setSheetOpen(true);
+    if (drag.open && dy < -36) setSheetOpen(false);
+  }
+
+  function onSheetPointerUp() {
+    sheetDrag.current = null;
+  }
+
   function handleAskSubmit(text: string, meta?: { fromMic?: boolean }) {
+    setSheetOpen(true);
     void askDog(text, { fromMic: Boolean(meta?.fromMic) });
   }
 
@@ -365,7 +394,11 @@ export function LisaApp({
 
   return (
     <div
-      className={clsx("c-lisa", isCompact && "is-compact")}
+      className={clsx(
+        "c-lisa",
+        isCompact && "is-compact",
+        sheetOpen ? "is-sheet-open" : "is-sheet-closed"
+      )}
       style={{ ["--progress" as string]: String(progress) }}
     >
       <audio ref={audioRef} src={withBase("/assets/lisa/fx/ambient.mp3")} loop preload="auto" />
@@ -377,44 +410,26 @@ export function LisaApp({
       />
 
       <div className="c-lisa_main" onClick={handleSheetClick}>
+        <button
+          type="button"
+          className="c-lisa_sheet-handle"
+          aria-label={sheetOpen ? "Collapse panel" : "Expand panel"}
+          aria-expanded={sheetOpen}
+          onClick={(e) => {
+            e.stopPropagation();
+            setSheetOpen((v) => !v);
+          }}
+          onPointerDown={onSheetPointerDown}
+          onPointerMove={onSheetPointerMove}
+          onPointerUp={onSheetPointerUp}
+          onPointerCancel={onSheetPointerUp}
+        />
+
         <div className={clsx("c-lisa_step", "c-lisa-step", expanded && "-expanded")}>
-          {history.length > 0 ? (
-            <button
-              type="button"
-              className="c-lisa-step_previous"
-              aria-label={history[history.length - 1]?.dialogHtml.replace(/<[^>]+>/g, "")}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleBack();
-              }}
-              dangerouslySetInnerHTML={{
-                __html: history[history.length - 1]?.dialogHtml ?? "",
-              }}
-            />
-          ) : null}
-
-          <LisaDialog
-            key={`${stepId}-${dialogHtml.slice(0, 40)}-${chatMessages.length}`}
-            html={dialogHtml}
-            showCursor={!typingDone}
-            onComplete={onTypingComplete}
-          />
-
-          <div className="c-lisa-step_content" onClick={(e) => e.stopPropagation()}>
-            {choices.length > 0 && !thinking ? (
-              <div className="c-lisa-step_choices">
-                {choices.map((choice) => (
-                  <button
-                    key={choice.label}
-                    type="button"
-                    className="c-lisa_button -primary c-lisa-step_choice"
-                    onClick={() => handleChoice(choice)}
-                    dangerouslySetInnerHTML={{ __html: choice.label }}
-                  />
-                ))}
-              </div>
-            ) : null}
-
+          <div
+            className="c-lisa_sheet-chrome"
+            onClick={(e) => e.stopPropagation()}
+          >
             {showAskBar ? (
               <GinnyAskBar
                 locale={locale}
@@ -422,10 +437,56 @@ export function LisaApp({
                 listening={listening}
                 onListeningChange={setListening}
                 onSubmit={handleAskSubmit}
+                placeholder={
+                  locale === "fr" ? "Et les chiens ?" : "What about dogs?"
+                }
+              />
+            ) : null}
+          </div>
+
+          <div className="c-lisa_sheet-body">
+            {history.length > 0 ? (
+              <button
+                type="button"
+                className="c-lisa-step_previous"
+                aria-label={history[history.length - 1]?.dialogHtml.replace(/<[^>]+>/g, "")}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleBack();
+                }}
+                dangerouslySetInnerHTML={{
+                  __html: history[history.length - 1]?.dialogHtml ?? "",
+                }}
               />
             ) : null}
 
-            {thinking ? <span className="c-lisa_loading" /> : null}
+            <LisaDialog
+              key={`${stepId}-${dialogHtml.slice(0, 40)}-${chatMessages.length}`}
+              html={dialogHtml}
+              showCursor={!typingDone}
+              onComplete={onTypingComplete}
+            />
+
+            <div className="c-lisa-step_content" onClick={(e) => e.stopPropagation()}>
+              {choices.length > 0 && !thinking ? (
+                <div className="c-lisa-step_choices">
+                  {choices.map((choice) => (
+                    <button
+                      key={choice.label}
+                      type="button"
+                      className="c-lisa_button -primary c-lisa-step_choice"
+                      onClick={() => {
+                        setSheetOpen(true);
+                        handleChoice(choice);
+                      }}
+                      dangerouslySetInnerHTML={{ __html: choice.label }}
+                    />
+                  ))}
+                </div>
+              ) : null}
+
+              {thinking ? <span className="c-lisa_loading" /> : null}
+            </div>
           </div>
         </div>
       </div>

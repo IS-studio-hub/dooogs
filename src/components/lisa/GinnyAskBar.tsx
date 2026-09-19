@@ -191,7 +191,16 @@ export function GinnyAskBar({
           aria-label={locale === "fr" ? "Envoyer" : "Send"}
           disabled={disabled || !value.trim()}
         >
-          →
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M5 12h12M13 6l6 6-6 6"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
         </button>
       </div>
     </form>

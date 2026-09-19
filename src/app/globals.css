@@ -459,19 +459,207 @@ html:not(.has-menu-opened) .c-menu {
   z-index: 2;
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 1023px) {
+  .c-lisa_stage {
+    inset: 0 0 var(--lisa-sheet-h, 9.5rem) 0;
+    transition: inset 0.35s var(--ease-out);
+  }
+
+  .c-lisa.is-sheet-open {
+    --lisa-sheet-h: min(62vh, 34rem);
+  }
+
+  .c-lisa.is-sheet-closed {
+    --lisa-sheet-h: 9.5rem;
+  }
+
+  .c-lisa.is-sheet-closed:not(:has(.c-ginny-ask)) {
+    --lisa-sheet-h: 2.75rem;
+  }
+
   .c-lisa_main {
-    inset: calc(70% - 8px) 0 0 0;
-    background-color: var(--color-bg);
-    border-top-left-radius: 8px;
-    border-top-right-radius: 8px;
-    transition: inset 0.3s var(--ease-out);
+    inset: auto 0 0 0;
+    height: var(--lisa-sheet-h, 9.5rem);
+    background-color: #fff;
+    border-top-left-radius: 1.5rem;
+    border-top-right-radius: 1.5rem;
+    padding: 0 1.1rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: height 0.35s var(--ease-out);
+    box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.08);
   }
 
   .c-lisa.is-compact .c-lisa_main {
-    inset: calc(90% - 8px) 0 0 0;
+    inset: auto 0 0 0;
+  }
+
+  .c-lisa_sheet-handle {
+    display: block;
+    flex: 0 0 auto;
+    width: 100%;
+    height: 1.35rem;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: grab;
+    touch-action: none;
+    position: relative;
+  }
+
+  .c-lisa_sheet-handle::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 2.75rem;
+    height: 0.28rem;
+    transform: translate(-50%, -50%);
+    border-radius: 999px;
+    background: #d0d0d0;
+  }
+
+  .c-lisa_sheet-handle:active {
+    cursor: grabbing;
+  }
+
+  .c-lisa_sheet-chrome {
+    flex: 0 0 auto;
+    margin-bottom: 0.85rem;
+  }
+
+  .c-lisa_sheet-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(0.5rem);
+    transition: opacity 0.25s var(--ease-out), transform 0.25s var(--ease-out);
+  }
+
+  .c-lisa.is-sheet-open .c-lisa_sheet-body {
+    opacity: 1;
+    pointer-events: auto;
+    transform: none;
+  }
+
+  .c-lisa.is-sheet-closed .c-lisa_sheet-body {
+    display: none;
+  }
+
+  .c-lisa_step {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    height: 100%;
+  }
+
+  .c-lisa-step_content {
+    margin-top: 1rem;
+    padding-bottom: 5rem;
+  }
+
+  .c-lisa-step_choices {
+    gap: 0.55rem;
+  }
+
+  .c-lisa_button.-primary.c-lisa-step_choice {
+    background: #111;
+    color: #fff;
+    border-color: #111;
+    padding: 0.65em 1.15em;
+    font-size: 0.92rem;
+  }
+
+  .c-ginny-ask {
+    margin-top: 0;
+    max-width: none;
+  }
+
+  .c-ginny-ask_field {
+    padding: 0.3rem 0.35rem 0.3rem 1.05rem;
+    background: #fff;
+    border: 1.5px solid #111;
+    box-shadow: none;
+    backdrop-filter: none;
+  }
+
+  .c-ginny-ask_input {
+    font-size: 1rem;
+    padding: 0.7rem 0.35rem;
+  }
+
+  .c-ginny-ask_input::placeholder {
+    color: #9a9a9a;
+  }
+
+  .c-ginny-ask_mic {
+    width: 2.55rem;
+    height: 2.55rem;
+    border: 1.5px solid #111;
+    background: #fff;
+    color: #111;
+  }
+
+  .c-ginny-ask_send {
+    width: 2.55rem;
+    height: 2.55rem;
+    border: 0;
+    background: #8d8d8d;
+    color: #fff;
+  }
+
+  .c-ginny-ask_send:not(:disabled) {
+    background: #111;
+  }
+
+  .c-ginny-ask_send svg {
+    width: 1.05rem;
+    height: 1.05rem;
+  }
+
+  .c-lisa_sound {
+    bottom: calc(var(--lisa-sheet-h, 9.5rem) + 0.85rem);
+    transition: bottom 0.35s var(--ease-out);
+  }
+
+  .c-lisa.is-compact .c-lisa_sound {
+    bottom: calc(var(--lisa-sheet-h, 9.5rem) + 0.85rem);
+  }
+
+  .c-lisa_back {
+    bottom: calc(var(--lisa-sheet-h, 9.5rem) + 0.85rem);
+    transition: bottom 0.35s var(--ease-out);
   }
 }
+
+@media (min-width: 1024px) {
+  .c-lisa_sheet-handle {
+    display: none;
+  }
+
+  .c-lisa_sheet-chrome {
+    order: 2;
+  }
+
+  .c-lisa_sheet-body {
+    order: 1;
+  }
+
+  .c-lisa_step {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .c-lisa_sheet-chrome .c-ginny-ask {
+    margin-top: 1.1rem;
+  }
+}
+
 
 @media (min-width: 1025px) {
   .c-lisa_main {
@@ -531,16 +719,6 @@ html:not(.has-menu-opened) .c-menu {
   overflow: hidden;
 }
 
-@media (max-width: 1024px) {
-  .c-lisa_sound {
-    bottom: calc(50% + 8px + 1.3333333333rem);
-  }
-
-  .c-lisa.is-compact .c-lisa_sound {
-    bottom: calc(20% + 8px + 1.3333333333rem);
-  }
-}
-
 .c-lisa_sound:before {
   content: "";
   display: block;
@@ -555,14 +733,14 @@ html:not(.has-menu-opened) .c-menu {
   z-index: 1;
 }
 
-@media (min-width: 1025px) {
+@media (min-width: 1024px) {
   .c-lisa_sound:before {
     width: 2.6666666667rem;
     height: 2.6666666667rem;
   }
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 1023px) {
   .c-lisa_sound:before {
     width: 32px;
     height: 32px;
