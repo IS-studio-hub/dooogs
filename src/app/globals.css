@@ -318,9 +318,9 @@ video {
 }
 
 .c-header_logo_img {
-  display: block;
-  width: 100%;
+  width: 50%;
   height: auto;
+  display: block;
 }
 
 .c-header_icon {
