@@ -1,4 +1,5 @@
 import type { Locale } from "@/lib/lisa-types";
+import { withBase } from "@/lib/base-path";
 
 export function stripDialogHtml(html: string): string {
   return html
@@ -80,7 +81,7 @@ export function speakGinny(
 
     // 1) OpenAI HD via API
     try {
-      const res = await fetch("/api/tts", {
+      const res = await fetch(withBase("/api/tts"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text, locale }),

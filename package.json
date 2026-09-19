@@ -3,10 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
-    "build": "next build --turbopack",
+    "dev": "node scripts/ensure-api.mjs && next dev --turbopack",
+    "build": "node scripts/ensure-api.mjs && next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "build:pages": "GITHUB_PAGES=true node scripts/ensure-api.mjs && GITHUB_PAGES=true next build"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.8",

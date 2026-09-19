@@ -6,9 +6,11 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { RectAreaLightUniformsLib } from "three/examples/jsm/lights/RectAreaLightUniformsLib.js";
 
+import { withBase } from "@/lib/base-path";
+
 export type CharacterClip = "idle" | "talk" | "wave";
 
-const MODEL_URL = "/assets/lisa/character/lisa.glb?v=poodle-eyes-joined-3";
+const MODEL_URL = withBase("/assets/lisa/character/lisa.glb?v=poodle-eyes-joined-3");
 const STAGE = 0xc9c9c9;
 
 const STILL_EPS = 0.0008;
@@ -201,7 +203,6 @@ export function LisaCharacter({
     const center = new THREE.Vector3();
 
     let joints: LookJoint[] = [];
-    let headBone: THREE.Bone | null = null;
     let skeleton: THREE.Skeleton | null = null;
     let framed = false;
     let mixer: THREE.AnimationMixer | null = null;
@@ -323,7 +324,6 @@ export function LisaCharacter({
         root.add(model);
         root.updateMatrixWorld(true);
 
-        headBone = findBone(model, ["head"]);
         const chest = findBone(model, ["chest"]);
         const n1 = findBone(model, ["neck_01"]);
 

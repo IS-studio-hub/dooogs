@@ -7,6 +7,10 @@ import { notFound } from "next/navigation";
 
 const locales: Locale[] = ["en", "fr"];
 
+export function generateStaticParams() {
+  return locales.map((locale) => ({ locale }));
+}
+
 export default async function LocaleLayout({
   children,
   params,

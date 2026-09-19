@@ -44,3 +44,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Copied from src/server/api by scripts/ensure-api.mjs
+src/app/api

@@ -11,6 +11,8 @@ import {
   type Locale,
 } from "@/lib/lisa-types";
 import { speakGinny } from "@/lib/ginny-voice";
+import { withBase } from "@/lib/base-path";
+import { offlineDogReply } from "@/lib/dog-offline";
 import { GinnyAskBar } from "./GinnyAskBar";
 import { LisaDialog } from "./LisaDialog";
 import { LisaMedia } from "./LisaMedia";
@@ -70,7 +72,7 @@ export function LisaApp({
     return scriptChoices;
   }, [aiSuggestions, scriptChoices]);
 
-  const media = step?.media ?? [];
+  const media = useMemo(() => step?.media ?? [], [step?.media]);
   const isCompact = Boolean(step?.isCompact) || thinking;
   const progress = Math.min(
     0.95,
@@ -160,34 +162,40 @@ export function LisaApp({
       setExpanded(false);
 
       try {
-        const res = await fetch("/api/chat", {
+        const res = await fetch(withBase("/api/chat"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ messages: nextMessages, locale }),
         });
-        const data = (await res.json()) as {
-          reply?: string;
-          suggestions?: string[];
-        };
-        const reply =
-          data.reply?.trim() ||
-          (locale === "fr"
-            ? "Je n’ai pas pu répondre — réessaie?"
-            : "I couldn’t answer that — try again?");
+        let reply = "";
+        let suggestions: string[] | null = null;
+        if (res.ok) {
+          const data = (await res.json()) as {
+            reply?: string;
+            suggestions?: string[];
+          };
+          reply = data.reply?.trim() || "";
+          if (Array.isArray(data.suggestions) && data.suggestions.length) {
+            suggestions = data.suggestions;
+          }
+        }
+        if (!reply) {
+          const offline = offlineDogReply(text, locale, nextMessages);
+          reply = offline.reply;
+          suggestions = offline.suggestions;
+        }
         setChatMessages((m) => [...m, { role: "assistant", content: reply }]);
-        setAiSuggestions(
-          Array.isArray(data.suggestions) && data.suggestions.length
-            ? data.suggestions
-            : null
-        );
+        setAiSuggestions(suggestions);
         // Thinking line is current — replace in place (prior reply already archived)
         showAssistantReply(reply, { pushPrior: false });
       } catch {
-        const fail =
-          locale === "fr"
-            ? "Oups — connexion difficile. Réessaie dans un instant."
-            : "Oops — connection hiccup. Try again in a moment.";
-        showAssistantReply(fail, { pushPrior: false });
+        const offline = offlineDogReply(text, locale, nextMessages);
+        setChatMessages((m) => [
+          ...m,
+          { role: "assistant", content: offline.reply },
+        ]);
+        setAiSuggestions(offline.suggestions);
+        showAssistantReply(offline.reply, { pushPrior: false });
       } finally {
         setThinking(false);
         askingRef.current = false;
@@ -359,7 +367,7 @@ export function LisaApp({
       className={clsx("c-lisa", isCompact && "is-compact")}
       style={{ ["--progress" as string]: String(progress) }}
     >
-      <audio ref={audioRef} src="/assets/lisa/fx/ambient.mp3" loop preload="auto" />
+      <audio ref={audioRef} src={withBase("/assets/lisa/fx/ambient.mp3")} loop preload="auto" />
 
       <LisaMedia
         media={displayMedia}

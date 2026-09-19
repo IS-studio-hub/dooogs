@@ -71,7 +71,7 @@ function isOffTopic(text: string): boolean {
 export function offlineDogReply(
   userText: string,
   locale: "en" | "fr",
-  _history: Msg[]
+  _history?: Msg[]
 ): OfflineResult {
   const breed = detectBreed(userText);
   if (breed) {
