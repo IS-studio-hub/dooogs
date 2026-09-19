@@ -11,6 +11,8 @@ export function withBase(path: string): string {
     if (host.endsWith("github.io")) {
       const seg = window.location.pathname.split("/").filter(Boolean)[0];
       if (seg && seg !== "_next" && seg !== "assets") base = `/${seg}`;
+      // Hard fallback for this project site
+      if (!base) base = "/dooogs";
     }
   }
 

@@ -33,6 +33,11 @@ const nextConfig: NextConfig = {
   env: {
     // Always bake the public base path for client asset URLs
     NEXT_PUBLIC_BASE_PATH: basePath,
+    // GitHub Pages has no Node API — chat/TTS hit Cloudflare Worker
+    NEXT_PUBLIC_API_ORIGIN: isGithubPages
+      ? process.env.NEXT_PUBLIC_API_ORIGIN ||
+        "https://ginny-dooogs-api.auspicious-turn.workers.dev"
+      : process.env.NEXT_PUBLIC_API_ORIGIN || "",
   },
 };
 

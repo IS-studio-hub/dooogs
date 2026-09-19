@@ -11,6 +11,7 @@ import {
   type Locale,
 } from "@/lib/lisa-types";
 import { speakGinny } from "@/lib/ginny-voice";
+import { apiUrl } from "@/lib/api-url";
 import { withBase } from "@/lib/base-path";
 import { offlineDogReply } from "@/lib/dog-offline";
 import { GinnyAskBar } from "./GinnyAskBar";
@@ -162,7 +163,7 @@ export function LisaApp({
       setExpanded(false);
 
       try {
-        const res = await fetch(withBase("/api/chat"), {
+        const res = await fetch(apiUrl("/api/chat"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ messages: nextMessages, locale }),
