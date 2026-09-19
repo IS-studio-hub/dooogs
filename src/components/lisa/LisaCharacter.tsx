@@ -10,7 +10,7 @@ import { withBase } from "@/lib/base-path";
 
 export type CharacterClip = "idle" | "talk" | "wave";
 
-const MODEL_URL = withBase("/assets/lisa/character/lisa.glb?v=poodle-eyes-joined-3");
+const MODEL_PATH = "/assets/lisa/character/lisa.glb?v=poodle-eyes-joined-4";
 const STAGE = 0xc9c9c9;
 
 const STILL_EPS = 0.0008;
@@ -294,7 +294,7 @@ export function LisaCharacter({
     };
 
     new GLTFLoader().load(
-      MODEL_URL,
+      withBase(MODEL_PATH),
       (gltf) => {
         if (disposed) return;
         const model = gltf.scene;
