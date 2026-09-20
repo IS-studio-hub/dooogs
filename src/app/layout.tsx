@@ -16,21 +16,21 @@ const display = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: "dooogs OS | Local Jarvis for your Mac",
+  title: "Ginny | Dog Types Guide",
   description:
-    "Download dooogs OS — a local voice assistant with always-on MCP connectors, permission popups, and your existing project data.",
-  metadataBase: new URL("https://is-studio-hub.github.io/dooogs"),
+    "Meet Ginny — your poodle guide to dog breeds. Explore types, history, and where to see more of each breed.",
+  metadataBase: new URL("https://drinkginny.com"),
   openGraph: {
-    title: "dooogs OS",
+    title: "Ginny | Dog Types Guide",
     description:
-      "Local Jarvis for Mac: voice chat, MCP hub, and allow/deny access popups.",
-    siteName: "dooogs OS",
+      "Explore dog breeds with Ginny: traits, history, and where to meet each type.",
+    siteName: "Ginny",
   },
   twitter: {
     card: "summary_large_image",
-    title: "dooogs OS",
+    title: "Ginny | Dog Types Guide",
     description:
-      "Local Jarvis for Mac: voice chat, MCP hub, and allow/deny access popups.",
+      "Explore dog breeds with Ginny: traits, history, and where to meet each type.",
   },
   icons: {
     icon: [

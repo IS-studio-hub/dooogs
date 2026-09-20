@@ -47,13 +47,3 @@ next-env.d.ts
 
 # Copied from src/server/api by scripts/ensure-api.mjs
 src/app/api
-
-# dooogs OS desktop
-desktop/node_modules
-desktop/dist
-desktop/release
-desktop/*.log
-
-# Large Mac app zip — publish via GitHub Releases (see scripts/pack-desktop.sh)
-public/downloads/*.zip
-!public/downloads/.gitkeep
