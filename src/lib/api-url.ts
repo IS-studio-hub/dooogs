@@ -1,7 +1,7 @@
 import { withBase } from "@/lib/base-path";
 
 /** Cloudflare Worker that serves /api/chat + /api/tts for GitHub Pages. */
-const PAGES_API_ORIGIN = "https://ginny-dooogs-api.auspicious-turn.workers.dev";
+const PAGES_API_ORIGIN = "https://ginny-dooogs-api.ajar-seat.workers.dev";
 
 /**
  * API routes on GitHub Pages must hit an external origin (Cloudflare Worker).

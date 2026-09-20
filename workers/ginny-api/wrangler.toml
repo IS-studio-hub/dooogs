@@ -2,8 +2,10 @@ name = "ginny-dooogs-api"
 main = "worker.js"
 compatibility_date = "2024-09-23"
 
-# Set secret (do not commit the key):
-#   printf '%s' "$OPENAI_API_KEY" | npx wrangler secret put OPENAI_API_KEY
-#
-# Optional model override via dashboard or:
-#   npx wrangler secret put OPENAI_CHAT_MODEL
+# Free Llama chat via Cloudflare Workers AI (no OpenAI key).
+[ai]
+binding = "AI"
+
+# Optional: point at a public Ollama host instead of Workers AI
+#   npx wrangler secret put OLLAMA_BASE_URL
+#   npx wrangler secret put OLLAMA_CHAT_MODEL

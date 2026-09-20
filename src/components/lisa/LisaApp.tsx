@@ -14,6 +14,7 @@ import { speakDooogs } from "@/lib/dooogs-voice";
 import { apiUrl } from "@/lib/api-url";
 import { withBase } from "@/lib/base-path";
 import { offlineDogReply } from "@/lib/dog-offline";
+import { tryBrowserOllama } from "@/lib/browser-ollama";
 import { DooogsAskBar } from "./DooogsAskBar";
 import { LisaDialog } from "./LisaDialog";
 import { LisaMedia } from "./LisaMedia";
@@ -165,23 +166,35 @@ export function LisaApp({
       setExpanded(false);
 
       try {
-        const res = await fetch(apiUrl("/api/chat"), {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ messages: nextMessages, locale }),
-        });
         let reply = "";
         let suggestions: string[] | null = null;
-        if (res.ok) {
-          const data = (await res.json()) as {
-            reply?: string;
-            suggestions?: string[];
-          };
-          reply = data.reply?.trim() || "";
-          if (Array.isArray(data.suggestions) && data.suggestions.length) {
-            suggestions = data.suggestions;
+
+        // 1) Free local Ollama in the browser when available
+        const local = await tryBrowserOllama(nextMessages, locale);
+        if (local?.reply) {
+          reply = local.reply;
+          suggestions = local.suggestions;
+        }
+
+        // 2) Cloudflare Worker (Workers AI / remote Ollama)
+        if (!reply) {
+          const res = await fetch(apiUrl("/api/chat"), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ messages: nextMessages, locale }),
+          });
+          if (res.ok) {
+            const data = (await res.json()) as {
+              reply?: string;
+              suggestions?: string[];
+            };
+            reply = data.reply?.trim() || "";
+            if (Array.isArray(data.suggestions) && data.suggestions.length) {
+              suggestions = data.suggestions;
+            }
           }
         }
+
         if (!reply) {
           const offline = offlineDogReply(text, locale, nextMessages);
           reply = offline.reply;

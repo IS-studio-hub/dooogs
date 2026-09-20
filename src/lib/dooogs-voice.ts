@@ -1,5 +1,4 @@
 import type { Locale } from "@/lib/lisa-types";
-import { apiUrl } from "@/lib/api-url";
 
 export function stripDialogHtml(html: string): string {
   return html
@@ -27,7 +26,7 @@ function scoreVoice(v: SpeechSynthesisVoice, locale: Locale): number {
   if (/(samantha|karen|moira|fiona|tessa|aria|jenny|sonia|google.*female|microsoft.*aria)/.test(name))
     score += 25;
   if (/(female|woman)/.test(name)) score += 8;
-  if (v.localService === false) score += 5; // cloud voices often sound better
+  if (v.localService === false) score += 5;
   if (/(male|david|daniel|alex|fred)/.test(name) && !/female/.test(name)) score -= 20;
   return score;
 }
@@ -44,9 +43,7 @@ type SpeakHandles = {
   done: Promise<void>;
 };
 
-/**
- * Prefer OpenAI HD TTS (real human-like). Falls back to best browser voice.
- */
+/** Free browser speech — no cloud TTS / API key. */
 export function speakDooogs(
   html: string,
   locale: Locale,
@@ -54,22 +51,9 @@ export function speakDooogs(
 ): SpeakHandles {
   const text = stripDialogHtml(html);
   let stopped = false;
-  let audio: HTMLAudioElement | null = null;
-  let objectUrl: string | null = null;
-  const abort = new AbortController();
 
   const stop = () => {
     stopped = true;
-    abort.abort();
-    if (audio) {
-      audio.pause();
-      audio.src = "";
-      audio = null;
-    }
-    if (objectUrl) {
-      URL.revokeObjectURL(objectUrl);
-      objectUrl = null;
-    }
     if (typeof window !== "undefined" && window.speechSynthesis) {
       window.speechSynthesis.cancel();
     }
@@ -78,38 +62,6 @@ export function speakDooogs(
 
   const done = (async () => {
     if (!text) return;
-
-    // 1) OpenAI HD via API
-    try {
-      const res = await fetch(apiUrl("/api/tts"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, locale }),
-        signal: abort.signal,
-      });
-      if (res.ok) {
-        const blob = await res.blob();
-        if (stopped) return;
-        objectUrl = URL.createObjectURL(blob);
-        audio = new Audio(objectUrl);
-        audio.preload = "auto";
-        opts?.onStart?.();
-        await new Promise<void>((resolve, reject) => {
-          if (!audio) return resolve();
-          audio.onended = () => resolve();
-          audio.onerror = () => reject(new Error("audio_error"));
-          void audio.play().catch(reject);
-        });
-        opts?.onEnd?.();
-        return;
-      }
-    } catch {
-      /* fall through to browser TTS */
-    }
-
-    if (stopped) return;
-
-    // 2) Browser Speech Synthesis fallback
     if (typeof window === "undefined" || !window.speechSynthesis) {
       opts?.onEnd?.();
       return;

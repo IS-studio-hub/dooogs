@@ -1,6 +1,7 @@
 /**
- * Dooogs! chat + TTS proxy for GitHub Pages (static host has no Node API routes).
- * Secrets: OPENAI_API_KEY (required), OPENAI_CHAT_MODEL (optional).
+ * Dooogs! chat API for GitHub Pages.
+ * Uses Cloudflare Workers AI (Llama 3.3 70B) — free, no OpenAI key.
+ * Optional: set OLLAMA_BASE_URL secret to proxy a public Ollama host instead.
  */
 
 const ALLOWED_ORIGINS = [
@@ -8,6 +9,8 @@ const ALLOWED_ORIGINS = [
   "http://localhost:3000",
   "http://127.0.0.1:3000",
 ];
+
+const WORKERS_AI_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 
 function corsHeaders(req) {
   const origin = req.headers.get("Origin") || "";
@@ -124,6 +127,67 @@ function offlineDogReply(userText, locale) {
   };
 }
 
+function defaultSuggestions(locale) {
+  return locale === "fr"
+    ? ["En savoir plus", "Autre race", "Éducation"]
+    : ["Tell me more", "Another breed", "Training tips"];
+}
+
+async function chatViaOllama(cleaned, locale, env) {
+  const base = (env.OLLAMA_BASE_URL || "").trim().replace(/\/+$/, "");
+  if (!base) return null;
+
+  const model = (env.OLLAMA_CHAT_MODEL || "llama3.1:8b").trim();
+  const system = `${dogExpertSystemPrompt(locale)}\n\n${suggestionSystemExtra(locale)}`;
+  const upstream = await fetch(`${base}/v1/chat/completions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model,
+      temperature: 0.55,
+      max_tokens: 1100,
+      messages: [{ role: "system", content: system }, ...cleaned],
+    }),
+  });
+  if (!upstream.ok) {
+    const detail = await upstream.text().catch(() => "");
+    throw new Error(`ollama_${upstream.status}:${detail.slice(0, 120)}`);
+  }
+  const data = await upstream.json();
+  const raw = data.choices?.[0]?.message?.content?.trim() || "";
+  if (!raw) throw new Error("ollama_empty");
+  const parsed = parseReplyAndSuggestions(raw);
+  return {
+    reply: parsed.reply,
+    suggestions: parsed.suggestions.length ? parsed.suggestions : defaultSuggestions(locale),
+    source: `ollama:${model}`,
+  };
+}
+
+async function chatViaWorkersAI(cleaned, locale, env) {
+  if (!env.AI) throw new Error("workers_ai_missing");
+
+  const system = `${dogExpertSystemPrompt(locale)}\n\n${suggestionSystemExtra(locale)}`;
+  const result = await env.AI.run(WORKERS_AI_MODEL, {
+    messages: [{ role: "system", content: system }, ...cleaned],
+    max_tokens: 1100,
+    temperature: 0.55,
+  });
+
+  const raw =
+    (typeof result === "string" ? result : result?.response || result?.result?.response || "")
+      .toString()
+      .trim();
+  if (!raw) throw new Error("workers_ai_empty");
+
+  const parsed = parseReplyAndSuggestions(raw);
+  return {
+    reply: parsed.reply,
+    suggestions: parsed.suggestions.length ? parsed.suggestions : defaultSuggestions(locale),
+    source: `workers-ai:${WORKERS_AI_MODEL}`,
+  };
+}
+
 async function handleChat(req, env) {
   let body;
   try {
@@ -153,116 +217,32 @@ async function handleChat(req, env) {
   }
 
   const lastUser = cleaned[cleaned.length - 1].content;
-  const key = (env.OPENAI_API_KEY || "").trim();
-  if (!key) {
-    const offline = offlineDogReply(lastUser, locale);
-    return json(req, { ...offline, source: "offline" });
-  }
-
-  const system = `${dogExpertSystemPrompt(locale)}\n\n${suggestionSystemExtra(locale)}`;
 
   try {
-    const upstream = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${key}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: (env.OPENAI_CHAT_MODEL || "gpt-4o").trim(),
-        temperature: 0.55,
-        max_tokens: 1100,
-        messages: [{ role: "system", content: system }, ...cleaned],
-      }),
-    });
+    const ollama = await chatViaOllama(cleaned, locale, env);
+    if (ollama) return json(req, ollama);
 
-    if (!upstream.ok) {
-      const detail = await upstream.text().catch(() => "");
-      const offline = offlineDogReply(lastUser, locale);
-      return json(req, {
-        ...offline,
-        source: "offline_fallback",
-        upstreamStatus: upstream.status,
-        detail: detail.slice(0, 200),
-      });
-    }
-
-    const data = await upstream.json();
-    const raw = data.choices?.[0]?.message?.content?.trim() || "";
-    if (!raw) {
-      const offline = offlineDogReply(lastUser, locale);
-      return json(req, { ...offline, source: "offline_empty" });
-    }
-
-    const { reply, suggestions } = parseReplyAndSuggestions(raw);
-    return json(req, {
-      reply,
-      suggestions:
-        suggestions.length > 0
-          ? suggestions
-          : locale === "fr"
-            ? ["En savoir plus", "Autre race", "Éducation"]
-            : ["Tell me more", "Another breed", "Training tips"],
-      source: "openai",
-    });
-  } catch {
+    const ai = await chatViaWorkersAI(cleaned, locale, env);
+    return json(req, ai);
+  } catch (err) {
     const offline = offlineDogReply(lastUser, locale);
-    return json(req, { ...offline, source: "offline_error" });
+    return json(req, {
+      ...offline,
+      source: "offline_fallback",
+      detail: err instanceof Error ? err.message.slice(0, 200) : "chat_failed",
+    });
   }
 }
 
-async function handleTts(req, env) {
-  const key = (env.OPENAI_API_KEY || "").trim();
-  if (!key) {
-    return json(req, { error: "missing_openai_key" }, 501);
-  }
-
-  let body;
-  try {
-    body = await req.json();
-  } catch {
-    return json(req, { error: "invalid_json" }, 400);
-  }
-
-  const text = (body.text ?? "").replace(/\s+/g, " ").trim().slice(0, 4000);
-  if (!text) return json(req, { error: "empty_text" }, 400);
-
-  const locale = body.locale === "fr" ? "fr" : "en";
-  const voice = locale === "fr" ? "nova" : "shimmer";
-
-  const upstream = await fetch("https://api.openai.com/v1/audio/speech", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${key}`,
-      "Content-Type": "application/json",
+async function handleTts(req) {
+  return json(
+    req,
+    {
+      error: "tts_browser_only",
+      hint: "Voice uses the free browser speech engine — no API key needed.",
     },
-    body: JSON.stringify({
-      model: "tts-1-hd",
-      voice,
-      input: text,
-      response_format: "mp3",
-      speed: 1.0,
-    }),
-  });
-
-  if (!upstream.ok) {
-    const detail = await upstream.text().catch(() => "");
-    return json(
-      req,
-      { error: "tts_upstream", status: upstream.status, detail: detail.slice(0, 300) },
-      502
-    );
-  }
-
-  const audio = await upstream.arrayBuffer();
-  return new Response(audio, {
-    status: 200,
-    headers: {
-      "Content-Type": "audio/mpeg",
-      "Cache-Control": "private, max-age=3600",
-      ...corsHeaders(req),
-    },
-  });
+    501
+  );
 }
 
 export default {
@@ -275,14 +255,21 @@ export default {
     const path = url.pathname.replace(/\/+$/, "") || "/";
 
     if (req.method === "GET" && (path === "/" || path === "/health")) {
-      return json(req, { ok: true, service: "dooogs-api" });
+      return json(req, {
+        ok: true,
+        service: "dooogs-api",
+        chat: env.OLLAMA_BASE_URL ? "ollama" : "workers-ai",
+        model: env.OLLAMA_BASE_URL
+          ? env.OLLAMA_CHAT_MODEL || "llama3.1:8b"
+          : WORKERS_AI_MODEL,
+      });
     }
 
     if (req.method === "POST" && (path === "/api/chat" || path === "/chat")) {
       return handleChat(req, env);
     }
     if (req.method === "POST" && (path === "/api/tts" || path === "/tts")) {
-      return handleTts(req, env);
+      return handleTts(req);
     }
 
     return json(req, { error: "not_found", path }, 404);
