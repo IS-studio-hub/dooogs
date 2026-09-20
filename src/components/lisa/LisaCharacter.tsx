@@ -92,19 +92,19 @@ export function LisaCharacter({
     camera.position.set(0, 1.25, 2.6);
     camera.lookAt(0, 1.1, 0);
 
-    // ——— Cinematic lighting (key / fill / rim / kick) ———
-    // Keep ambient low so sculpted light reads on fur and face.
-    scene.add(new THREE.AmbientLight(0xc8c4c0, 0.12));
-    scene.add(new THREE.HemisphereLight(0xf5f0ea, 0x6a6a72, 0.22));
+    // ——— Soft studio lighting (quiet key / fill / rim) ———
+    // Higher ambient, lower contrast — form without drama.
+    scene.add(new THREE.AmbientLight(0xc8c4c0, 0.38));
+    scene.add(new THREE.HemisphereLight(0xf5f0ea, 0x8a8a90, 0.42));
 
-    // Softbox key (area) — broad beauty wrap
-    const key = new THREE.RectAreaLight(0xfff2e4, 11, 2.6, 2.0);
+    // Softbox key (area) — gentle beauty wrap
+    const key = new THREE.RectAreaLight(0xfff2e4, 4.2, 2.8, 2.2);
     key.position.set(1.15, 2.15, 1.55);
     key.lookAt(0, 1.15, 0);
     scene.add(key);
 
-    // Shadow-casting hard key — gives real contact & cheek form
-    const keySun = new THREE.DirectionalLight(0xffe8d2, 1.35);
+    // Soft shadow key — light contact without hard edges
+    const keySun = new THREE.DirectionalLight(0xffe8d2, 0.55);
     keySun.position.set(1.6, 2.8, 1.9);
     keySun.castShadow = true;
     keySun.shadow.mapSize.set(2048, 2048);
@@ -115,63 +115,63 @@ export function LisaCharacter({
     keySun.shadow.camera.top = 2.5;
     keySun.shadow.camera.bottom = -2.5;
     keySun.shadow.bias = -0.00025;
-    keySun.shadow.normalBias = 0.03;
-    keySun.shadow.radius = 3.5;
+    keySun.shadow.normalBias = 0.04;
+    keySun.shadow.radius = 6;
     scene.add(keySun);
     keySun.target.position.set(0, 1.2, 0);
     scene.add(keySun.target);
 
-    // Cool fill — camera left, low so key stays dominant
-    const fill = new THREE.RectAreaLight(0xdde6f5, 2.4, 2.8, 2.2);
+    // Cool fill — almost even with key
+    const fill = new THREE.RectAreaLight(0xdde6f5, 2.0, 2.8, 2.2);
     fill.position.set(-1.55, 1.35, 1.25);
     fill.lookAt(0, 1.1, 0);
     scene.add(fill);
 
-    // Rim / hair light — cool backlight for silhouette separation
-    const rim = new THREE.SpotLight(0xb8d4ff, 6.5, 14, 0.55, 0.45, 1.1);
+    // Soft rim — faint silhouette lift
+    const rim = new THREE.SpotLight(0xb8d4ff, 1.8, 14, 0.65, 0.65, 1.1);
     rim.position.set(-0.85, 2.55, -2.1);
     rim.target.position.set(0, 1.25, 0);
     rim.castShadow = false;
     scene.add(rim);
     scene.add(rim.target);
 
-    // Warm kicker — camera-right edge catch on muzzle / ear
-    const kick = new THREE.SpotLight(0xffc9a0, 3.8, 10, 0.48, 0.55, 1.25);
+    // Warm kicker — barely-there edge catch
+    const kick = new THREE.SpotLight(0xffc9a0, 1.1, 10, 0.55, 0.7, 1.25);
     kick.position.set(1.9, 1.7, -0.35);
     kick.target.position.set(0, 1.2, 0);
     scene.add(kick);
     scene.add(kick.target);
 
-    // Subtle bounce from below (floor reflection feel)
-    const bounce = new THREE.RectAreaLight(0xffffff, 1.4, 3.2, 1.2);
+    // Soft bounce from below
+    const bounce = new THREE.RectAreaLight(0xffffff, 0.55, 3.2, 1.2);
     bounce.position.set(0.1, 0.15, 1.1);
     bounce.lookAt(0, 1.2, 0);
     scene.add(bounce);
 
-    // Practical eye catch — tiny specular sparkle
-    const eyeCatch = new THREE.PointLight(0xfff6ea, 0.55, 3.5, 2);
+    // Tiny eye catch
+    const eyeCatch = new THREE.PointLight(0xfff6ea, 0.22, 3.5, 2);
     eyeCatch.position.set(0.25, 1.55, 1.85);
     scene.add(eyeCatch);
 
-    // Warm + cool “alive” accents that drift with mouse
-    const warm = new THREE.PointLight(0xffd7b0, 0.85, 5.5, 2);
+    // Quiet warm / cool accents
+    const warm = new THREE.PointLight(0xffd7b0, 0.28, 5.5, 2);
     warm.position.set(0.95, 1.6, 1.35);
     scene.add(warm);
 
-    const cool = new THREE.PointLight(0xc5d9ff, 0.7, 5.5, 2);
+    const cool = new THREE.PointLight(0xc5d9ff, 0.22, 5.5, 2);
     cool.position.set(-1.05, 1.4, 1.1);
     scene.add(cool);
 
-    const cheek = new THREE.SpotLight(0xfff0e0, 1.35, 7, 0.38, 0.6, 1.35);
+    const cheek = new THREE.SpotLight(0xfff0e0, 0.45, 7, 0.42, 0.75, 1.35);
     cheek.position.set(0.45, 2.15, 1.85);
     cheek.target.position.set(0, 1.2, 0);
     scene.add(cheek);
     scene.add(cheek.target);
 
-    // Invisible floor for cinematic contact shadows
+    // Soft contact shadow
     const ground = new THREE.Mesh(
       new THREE.PlaneGeometry(10, 10),
-      new THREE.ShadowMaterial({ opacity: 0.28, color: 0x000000 })
+      new THREE.ShadowMaterial({ opacity: 0.12, color: 0x000000 })
     );
     ground.rotation.x = -Math.PI / 2;
     ground.position.y = -0.05;
@@ -196,16 +196,16 @@ export function LisaCharacter({
       const mx = mouseNdcSmooth.x;
       const my = mouseNdcSmooth.y;
 
-      key.intensity = 9.5 + breath * 1.6 + Math.abs(mx) * 0.55;
-      keySun.intensity = 1.15 + breath * 0.25 + Math.max(0, mx) * 0.2;
-      fill.intensity = 1.9 + breath2 * 0.55;
-      rim.intensity = 5.2 + breath3 * 1.4 + Math.max(0, -mx) * 0.8;
-      kick.intensity = 3.0 + breath * 0.9 + Math.max(0, mx) * 0.7;
-      bounce.intensity = 1.1 + breath2 * 0.25;
-      eyeCatch.intensity = 0.4 + breath * 0.25;
-      warm.intensity = 0.65 + breath2 * 0.4 + Math.max(0, mx) * 0.3;
-      cool.intensity = 0.5 + breath * 0.35 + Math.max(0, -mx) * 0.35;
-      cheek.intensity = 1.05 + breath * 0.4;
+      key.intensity = 3.8 + breath * 0.45 + Math.abs(mx) * 0.2;
+      keySun.intensity = 0.48 + breath * 0.08 + Math.max(0, mx) * 0.06;
+      fill.intensity = 1.7 + breath2 * 0.2;
+      rim.intensity = 1.5 + breath3 * 0.35 + Math.max(0, -mx) * 0.2;
+      kick.intensity = 0.9 + breath * 0.25 + Math.max(0, mx) * 0.15;
+      bounce.intensity = 0.45 + breath2 * 0.1;
+      eyeCatch.intensity = 0.18 + breath * 0.08;
+      warm.intensity = 0.22 + breath2 * 0.12 + Math.max(0, mx) * 0.08;
+      cool.intensity = 0.18 + breath * 0.1 + Math.max(0, -mx) * 0.08;
+      cheek.intensity = 0.38 + breath * 0.12;
 
       key.position.set(
         keyHome.x + Math.sin(t * 0.28) * 0.14 + mx * 0.2,
