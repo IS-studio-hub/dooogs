@@ -93,16 +93,22 @@ function parseReplyAndSuggestions(raw) {
 function offlineDogReply(userText, locale) {
   const t = (userText || "").toLowerCase();
   const breeds = [
-    {
-      keys: ["poodle", "caniche"],
-      en: "Poodles are brilliant, athletic water dogs with curly low-shed coats that need regular grooming.<br><br>Want training tips, diet notes, or another breed?",
-      fr: "Les caniches sont des chiens d’eau brillants au poil bouclé peu sujet à la mue.<br><br>Tu veux éducation, alimentation, ou une autre race?",
-    },
-    {
-      keys: ["labrador", "lab "],
-      en: "Labrador Retrievers are friendly, food-motivated gundogs who need daily exercise and training.<br><br>Want diet tips or another breed next?",
-      fr: "Le Labrador est amical, motivé par la nourriture, et a besoin d’exercice quotidien.",
-    },
+    { keys: ["poodle", "caniche"], en: "Poodles (Standard, Mini, Toy) are brilliant athletic water dogs with curly low-shed coats that need regular grooming. German water-dog roots, beloved in France; common in Europe and North America. Train with brain games; never chocolate, grapes, xylitol, or onions.", fr: "Les caniches sont des chiens d’eau brillants au poil bouclé peu sujet à la mue, qui demandent un toilettage régulier. Racines allemandes, très aimés en France." },
+    { keys: ["labrador", "lab "], en: "Labrador Retrievers are friendly, food-motivated gundogs from Newfoundland’s St. John’s dogs, refined in Britain. High energy, soft mouths, daily walks and training. Watch weight; never chocolate, grapes, xylitol, or cooked bones.", fr: "Le Labrador est un chien de rapport amical, motivé par la nourriture, avec beaucoup d’énergie et besoin d’éducation." },
+    { keys: ["german shepherd", "berger allemand", "gsd"], en: "German Shepherds are loyal versatile working dogs — herding roots, police and sport roles. Need structure, training, and serious exercise. Socialize early; avoid toxic human foods.", fr: "Le berger allemand est un chien de travail loyal et polyvalent qui a besoin de structure et d’exercice." },
+    { keys: ["golden retriever", "golden"], en: "Golden Retrievers are warm eager gundogs from 19th-century Scotland. Grooming, exercise, and a job (therapy, field, sports). Watch ears and weight; never chocolate, grapes, xylitol, or onions.", fr: "Le Golden Retriever est un chien de rapport chaleureux, gueule douce, très proche des humains." },
+    { keys: ["french bulldog", "frenchie", "bouledogue"], en: "French Bulldogs are compact apartment-friendly companions with bat ears. Mind heat and breathing; moderate walks; harnesses; avoid obesity and toxic foods.", fr: "Le bouledogue français est un compagnon compact — attention chaleur et respiration." },
+    { keys: ["beagle"], en: "Beagles are merry scent hounds — nose-driven and vocal. Need sniff walks and secure fencing. Food-motivated; watch weight. No chocolate, grapes, or xylitol.", fr: "Le Beagle est un chien courant joyeux, mené par le nez, avec sa voix typique." },
+    { keys: ["border collie", "border"], en: "Border Collies are elite herding athletes with intense focus. Need a real job (herding, agility, advanced training) or they invent chaos.", fr: "Le Border Collie est un athlète de troupeau — il lui faut un vrai job." },
+    { keys: ["dachshund", "teckel", "doxie"], en: "Dachshunds are bold long-backed badger dogs. Protect the back (ramps, no big jumps). Short walks plus sniff games; watch weight.", fr: "Le teckel est audacieux et bas — protège le dos, évite les grands sauts." },
+    { keys: ["husky", "siberian"], en: "Siberian Huskies are endurance sled dogs — athletic, independent, vocal. Need serious exercise and secure fencing; dislike extreme heat.", fr: "Le Husky sibérien est un chien de traîneau d’endurance — beaucoup d’exercice et clôture solide." },
+    { keys: ["shiba"], en: "Shiba Inu are compact Japanese spitz — bold, clean, independent. Early socialization and leash manners; seasonal heavy shed; escape artists.", fr: "Le Shiba Inu est un spitz japonais compact — socialisation et laisse tôt." },
+    { keys: ["corgi", "pembroke", "cardigan"], en: "Corgis are short-legged Welsh herders with big personalities. Watch weight (long backs); mental work plus walks.", fr: "Le Corgi est un chien de troupeau bas sur pattes — attention au poids." },
+    { keys: ["rottweiler", "rott"], en: "Rottweilers are powerful working dogs from Rottweil, Germany. Need early socialization, clear leadership, and exercise with responsible ownership.", fr: "Le Rottweiler est un chien de travail puissant — socialisation précoce et cadre clair." },
+    { keys: ["australian shepherd", "aussie"], en: "Australian Shepherds are energetic US ranch herders (despite the name). Need a job — agility, herding, advanced training.", fr: "L’Australian Shepherd est un chien de troupeau énergique qui a besoin d’un job." },
+    { keys: ["boxer"], en: "Boxers are bouncy loyal working dogs with a square muzzle. Daily exercise and training; short coats feel cold and heat.", fr: "Le Boxer est joueur et loyal — exercice et éducation quotidiens." },
+    { keys: ["yorkshire", "yorkie"], en: "Yorkshire Terriers are tiny confident toy terriers. Dental care, coat upkeep, gentle handling; never chocolate or xylitol.", fr: "Le Yorkshire est un toy terrier confiant — soins dentaires et toilettage." },
+    { keys: ["akita"], en: "Akitas are large dignified Japanese spitz dogs. Experienced handling, socialization, and space; thick seasonal coat.", fr: "L’Akita est un grand spitz japonais digne — main experte et socialisation." },
   ];
   for (const b of breeds) {
     if (b.keys.some((k) => t.includes(k))) {
@@ -114,6 +120,36 @@ function offlineDogReply(userText, locale) {
             : ["Training tips", "Diet & foods", "Another breed"],
       };
     }
+  }
+  if (/toxic|chocolat|xylitol|grape|raisin|onion|oignon|poison|aliment.*tox/.test(t)) {
+    return {
+      reply:
+        locale === "fr"
+          ? "Jamais: chocolat, xylitol, raisin, oignon, ail, avocat, alcool, café, os cuits. En cas d’ingestion, appelle un véto vite."
+          : "Never: chocolate, xylitol, grapes/raisins, onions, garlic, avocado, alcohol, caffeine, cooked bones. Call a vet fast if ingested.",
+      suggestions:
+        locale === "fr" ? ["Friandises sûres", "Choisir une race"] : ["Safe treats", "Choosing a breed"],
+    };
+  }
+  if (/train|éduc|puppy|chiot|leash|laisse|bark|aboie/.test(t)) {
+    return {
+      reply:
+        locale === "fr"
+          ? "Éducation: sessions courtes positives, laisse douce, socialisation, routine. Dis-moi l’âge et la race pour affiner."
+          : "Training: short positive sessions, soft leash manners, socialization, routine. Tell me age + breed to tailor tips.",
+      suggestions:
+        locale === "fr" ? ["Socialisation", "Propreté"] : ["Socialization", "House training"],
+    };
+  }
+  if (/choose|choisir|which breed|quelle race|apart|appartement|family|famille/.test(t)) {
+    return {
+      reply:
+        locale === "fr"
+          ? "Pour choisir: énergie, toilettage, taille, expérience, enfants, temps. Décris ton quotidien et je propose 3 pistes."
+          : "To choose: energy, grooming, size, experience, kids, time. Describe your day and I’ll suggest 3 fits.",
+      suggestions:
+        locale === "fr" ? ["Appartement", "Premier chien"] : ["Apartment life", "First dog"],
+    };
   }
   return {
     reply:

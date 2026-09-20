@@ -36,7 +36,7 @@ const nextConfig: NextConfig = {
     // GitHub Pages has no Node API — chat hits Cloudflare Worker (Workers AI)
     NEXT_PUBLIC_API_ORIGIN: isGithubPages
       ? process.env.NEXT_PUBLIC_API_ORIGIN ||
-        "https://ginny-dooogs-api.ajar-seat.workers.dev"
+        "https://ginny-dooogs-api.encouraging-tablecloth-a0e.workers.dev"
       : process.env.NEXT_PUBLIC_API_ORIGIN || "",
     NEXT_PUBLIC_OLLAMA_BASE_URL:
       process.env.NEXT_PUBLIC_OLLAMA_BASE_URL || "http://127.0.0.1:11434",

@@ -49,6 +49,56 @@ const BREEDS: Record<
     en: `Dachshunds are bold badger dogs in a long, low frame — curious and courageous.<br><br>German earth-dog history (“Dachs” + “Hund”); popular companions worldwide in smooth, long, and wire coats.<br><br>Protect the back (ramps, no big jumps). Short walks plus sniff games. Watch weight. Never toxic foods like chocolate or xylitol.<br><br>See earthdog tests, dachshund specialties, and club meetups.`,
     fr: `Le teckel est un chasseur de blaireau audacieux, long et bas — curieux et courageux.<br><br>Histoire allemande de chien de terrier; compagnon mondial (poil ras, long, dur).<br><br>Protège le dos (rampes, pas de grands sauts). Petites marches + jeux de nez. Attention poids. Jamais chocolat ou xylitol.<br><br>Tests earthdog, spécialités teckel, clubs.`,
   },
+  husky: {
+    keys: ["husky", "siberian"],
+    en: `Siberian Huskies are endurance sled dogs — athletic, independent, and famously vocal.<br><br>Bred by the Chukchi people of Siberia; now popular worldwide as active companions.<br><br>They need serious exercise, secure fencing, and mental work. Thick coats dislike extreme heat. Never toxic human foods.<br><br>See sled demos, husky club events, and Nordic breed shows.`,
+    fr: `Le Husky sibérien est un chien de traîneau d’endurance — athlétique, indépendant, très expressif.<br><br>Sélectionné par les Tchouktches en Sibérie; compagnon actif dans le monde.<br><br>Beaucoup d’exercice, clôture solide, stimulation mentale. Attention à la chaleur. Jamais d’aliments toxiques.<br><br>Démos de traîneau, clubs husky, expos nordiques.`,
+  },
+  shiba: {
+    keys: ["shiba", "shiba inu"],
+    en: `Shiba Inu are compact Japanese spitz dogs — bold, clean, and often cat-like independent.<br><br>Ancient Japan hunting roots; now a global companion icon.<br><br>Early socialization and leash manners matter. They shed (“blowing coat”). Watch escape artists. Avoid toxic foods.<br><br>See Japanese breed clubs, companion shows, and Shiba specialty events.`,
+    fr: `Le Shiba Inu est un spitz japonais compact — audacieux, propre, parfois indépendant comme un chat.<br><br>Racines de chasse au Japon; compagnon mondial.<br><br>Socialisation et laisse tôt. Mue saisonnière. Attention aux fugues. Évite aliments toxiques.<br><br>Clubs japonais, expos compagnons, spécialités Shiba.`,
+  },
+  bulldog: {
+    keys: ["english bulldog", "bulldog"],
+    en: `English Bulldogs are sturdy companion dogs with a distinctive pushed-in face and easygoing vibe indoors.<br><br>British history from bull-baiting to gentle family icons.<br><br>Mind heat, breathing, and weight. Short walks; avoid overexertion. Choose health-focused breeders. No toxic table foods.<br><br>See bulldog clubs and companion specialty shows.`,
+    fr: `Le Bulldog anglais est un compagnon solide au museau court, calme à la maison.<br><br>Histoire britannique, d’abord combat puis famille.<br><br>Attention chaleur, respiration et poids. Petites marches. Éleveurs sérieux sur la santé. Pas d’aliments toxiques.<br><br>Clubs bulldog et expos compagnons.`,
+  },
+  yorkie: {
+    keys: ["yorkshire", "yorkie"],
+    en: `Yorkshire Terriers are tiny, confident toy terriers with a silky coat and big-dog attitude.<br><br>19th-century England (textile mills); now worldwide lap and show companions.<br><br>Dental care, gentle handling, and coat upkeep matter. Watch stairs and bigger dogs. Never chocolate or xylitol.<br><br>See toy group shows and Yorkie club events.`,
+    fr: `Le Yorkshire est un toy terrier confiant, poil soyeux, caractère bien trempé.<br><br>Angleterre du XIXe (usines textiles); compagnon mondial.<br><br>Soins dentaires, manipulation douce, toilettage. Attention escaliers. Jamais chocolat ou xylitol.<br><br>Expos toy et clubs Yorkie.`,
+  },
+  boxer: {
+    keys: ["boxer"],
+    en: `Boxers are bouncy working dogs — playful, loyal, and expressive with that square muzzle.<br><br>German roots (Bullensbeisser crosses); popular family and service dogs worldwide.<br><br>They need training and daily exercise. Short coats feel cold; watch heat too. No toxic human foods.<br><br>See obedience, agility, and Boxer club specialties.`,
+    fr: `Le Boxer est un chien de travail joueur et loyal, museau carré très expressif.<br><br>Racines allemandes; famille et service dans le monde.<br><br>Éducation et exercice quotidiens. Poil court: froid et chaleur. Pas d’aliments toxiques.<br><br>Obéissance, agility, clubs Boxer.`,
+  },
+  rottweiler: {
+    keys: ["rottweiler", "rott"],
+    en: `Rottweilers are powerful, confident working dogs — historically drovers and guardians.<br><br>From Rottweil, Germany; now worldwide for family, sport, and protection work with proper training.<br><br>Need early socialization, clear leadership, and exercise. Responsible ownership matters. Avoid toxic foods.<br><br>See working trials, IGP sport, and Rottweiler club events.`,
+    fr: `Le Rottweiler est un chien de travail puissant et sûr de lui — bouvier et gardien.<br><br>De Rottweil (Allemagne); famille, sport et protection avec une bonne éducation.<br><br>Socialisation précoce, cadre clair, exercice. Responsabilité de l’humain. Évite aliments toxiques.<br><br>Trials, sport IGP, clubs Rottweiler.`,
+  },
+  australian: {
+    keys: ["australian shepherd", "aussie"],
+    en: `Australian Shepherds are energetic herding dogs — bright, agile, and often patterned with merle coats.<br><br>Despite the name, developed in the US for ranch work; popular in dog sports worldwide.<br><br>They need a job (agility, herding, advanced training). Underworked Aussies invent trouble. No toxic foods.<br><br>See herding trials, agility, and Aussie club events.`,
+    fr: `L’Australian Shepherd est un chien de troupeau énergique — vif, agile, souvent merle.<br><br>Malgré le nom, développé aux USA pour les ranchs; star des sports canins.<br><br>Il lui faut un job (agility, troupeau, éducation). Sans ça: bêtises. Pas d’aliments toxiques.<br><br>Trials, agility, clubs Aussie.`,
+  },
+  corgi: {
+    keys: ["corgi", "pembroke", "cardigan"],
+    en: `Corgis (Pembroke & Cardigan) are short-legged herding dogs — bold, bright, and big on personality.<br><br>Welsh cattle dogs; Pembroke famously linked to British royalty; popular worldwide.<br><br>Watch weight (long backs). Mental work plus walks. Never toxic foods like chocolate or xylitol.<br><br>See herding events, companion shows, and corgi club meetups.`,
+    fr: `Le Corgi (Pembroke & Cardigan) est un chien de troupeau bas sur pattes — audacieux et malin.<br><br>Bouvier gallois; le Pembroke lié à la royauté britannique; populaire partout.<br><br>Attention au poids (dos long). Marches + stimulation. Jamais chocolat ou xylitol.<br><br>Troupeau, expos, clubs corgi.`,
+  },
+  maltese: {
+    keys: ["maltese"],
+    en: `Maltese are tiny companion dogs with flowing white coats and affectionate temperaments.<br><br>Ancient Mediterranean lapdog history; beloved show and companion dogs worldwide.<br><br>Daily coat care, dental health, and gentle exercise. Avoid rough play with big dogs. No toxic foods.<br><br>See toy shows and Maltese club specialties.`,
+    fr: `Le Bichon maltais est un tout petit compagnon au long poil blanc, très affectueux.<br><br>Histoire méditerranéenne ancienne; expos et compagnonnage mondiaux.<br><br>Toilettage, dents, exercice doux. Évite jeux brutaux. Pas d’aliments toxiques.<br><br>Expos toy et clubs maltais.`,
+  },
+  akita: {
+    keys: ["akita"],
+    en: `Akitas are large Japanese spitz dogs — dignified, loyal, and powerful.<br><br>From northern Japan; symbols of loyalty (Hachikō). Two related types: Japanese Akita and American Akita lines.<br><br>Need experienced handling, socialization, and space. Thick coat; seasonal shed. Avoid toxic foods.<br><br>See Akita clubs, companion specialties, and cultural breed events.`,
+    fr: `L’Akita est un grand spitz japonais — digne, loyal, puissant.<br><br>Nord du Japon; symbole de loyauté (Hachikō). Lignes japonaise et américaine.<br><br>Main experte, socialisation, espace. Poil dense, mue. Évite aliments toxiques.<br><br>Clubs Akita et expos.`,
+  },
 };
 
 function detectBreed(text: string): keyof typeof BREEDS | null {
@@ -62,7 +112,7 @@ function detectBreed(text: string): keyof typeof BREEDS | null {
 function isOffTopic(text: string): boolean {
   const t = text.toLowerCase();
   const doggy =
-    /dog|chien|breed|race|puppy|chiot|canine|labrador|poodle|caniche|shepherd|berger|beagle|collie|teckel|dachshund|golden|frenchie|bouledogue|akc|fci|groom|toilet|train|éduc|walk|promenade|bark|aboie|leash|laisse|vet|véto|kibble|croquette|toxic|chocolat|xylitol/.test(
+    /dog|chien|breed|race|puppy|chiot|canine|labrador|poodle|caniche|shepherd|berger|beagle|collie|teckel|dachshund|golden|frenchie|bouledogue|husky|shiba|bulldog|yorkie|yorkshire|boxer|rott|aussie|australian|corgi|maltese|akita|akc|fci|groom|toilet|train|éduc|walk|promenade|bark|aboie|leash|laisse|vet|véto|kibble|croquette|toxic|chocolat|xylitol/.test(
       t
     );
   return !doggy;
@@ -98,6 +148,45 @@ export function offlineDogReply(
         locale === "fr"
           ? ["Aliments toxiques", "Races et croquettes", "Caniche"]
           : ["Toxic foods list", "Breed diet tips", "Poodles"],
+    };
+  }
+
+  if (/toxic|chocolat|xylitol|grape|raisin|onion|oignon|poison|danger.*food|aliment.*tox/i.test(userText)) {
+    return {
+      reply:
+        locale === "fr"
+          ? `Aliments à ne jamais donner: chocolat, xylitol (chewing-gum / certains beurres de cacahuète), raisin et raisins secs, oignon, ail, avocat, alcool, café/thé, et os cuits qui se splinter.<br><br>En cas d’ingestion, contacte un véto ou un centre antipoison animal rapidement — ne fais pas vomir sans avis.<br><br>Tu veux des idées de friandises sûres ou des conseils pour une race?`
+          : `Never feed: chocolate, xylitol (gum / some peanut butters), grapes and raisins, onions, garlic, avocado, alcohol, caffeine, and cooked bones that splinter.<br><br>If your dog eats something risky, call a vet or pet poison hotline fast — don’t induce vomiting unless told to.<br><br>Want safe treat ideas or breed feeding tips next?`,
+      suggestions:
+        locale === "fr"
+          ? ["Friandises sûres", "Choisir une race", "Éducation"]
+          : ["Safe treats", "Choosing a breed", "Training tips"],
+    };
+  }
+
+  if (/train|éduc|puppy|chiot|leash|laisse|bark|aboie|obedi/i.test(userText)) {
+    return {
+      reply:
+        locale === "fr"
+          ? `Éducation: courtes sessions positives (récompense), laisse douce, socialisation variée, et une routine claire. Les chiots ont besoin de pauses — fatigue ≠ désobéissance.<br><br>Pour les aboiements: cherche la cause (ennui, alerte, demande) avant de corriger.<br><br>Dis-moi l’âge et la race (ou le problème précis) et on affine.`
+          : `Training basics: short positive sessions, soft leash manners, varied socialization, and a clear routine. Puppies need naps — tired isn’t “stubborn.”<br><br>For barking: find the why (boredom, alarm, asking) before correcting.<br><br>Tell me age + breed (or the exact snag) and we’ll tailor it.`,
+      suggestions:
+        locale === "fr"
+          ? ["Socialisation", "Propreté", "Caniche"]
+          : ["Socialization", "House training", "Poodles"],
+    };
+  }
+
+  if (/choose|choisir|which breed|quelle race|best dog|bon chien|apart|appartement|family|famille/i.test(userText)) {
+    return {
+      reply:
+        locale === "fr"
+          ? `Pour choisir: énergie (sportif vs calme), poil/toilettage, taille, expérience, enfants, et temps dispo. Appart → souvent compagnons moins “endurance”; maison + jardin → plus d’options actives.<br><br>Évite d’acheter sur un coup de cœur Instagram — parle à des clubs de race et des éleveurs qui testent la santé.<br><br>Décris ton quotidien (ville/campagne, heures hors maison, enfants) et je te propose 3 pistes.`
+          : `To choose well: energy level, coat/grooming, size, your experience, kids, and time. Apartments often suit lower-endurance companions; house + yard opens more athletic options.<br><br>Skip impulse Instagram buys — talk to breed clubs and health-testing breeders.<br><br>Describe your day (city/country, hours away, kids) and I’ll suggest 3 fits.`,
+      suggestions:
+        locale === "fr"
+          ? ["Appartement", "Famille avec enfants", "Premier chien"]
+          : ["Apartment life", "Family with kids", "First dog"],
     };
   }
 
