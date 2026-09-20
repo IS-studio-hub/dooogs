@@ -184,8 +184,8 @@ export function DooogsAskBar({
     const rec = new Ctor();
     rec.lang = locale === "fr" ? "fr-FR" : "en-US";
     rec.interimResults = true;
-    // Keep listening until the user taps stop — fewer cut-off / wrong takes
-    rec.continuous = true;
+    // Push-to-talk: one utterance, user taps stop to send (mobile-friendly)
+    rec.continuous = false;
     rec.maxAlternatives = 3;
 
     let finals = "";
@@ -197,9 +197,7 @@ export function DooogsAskBar({
         const row = ev.results[i];
         const piece = row?.[0]?.transcript ?? "";
         if (row?.isFinal) {
-          if (piece && !finals.includes(piece)) {
-            finals = `${finals} ${piece}`.replace(/\s+/g, " ").trim();
-          }
+          if (piece) finals = `${finals} ${piece}`.replace(/\s+/g, " ").trim();
         } else {
           interim += piece;
         }
@@ -210,8 +208,11 @@ export function DooogsAskBar({
 
     rec.onerror = (ev) => {
       const err = ev?.error || "";
-      // continuous mode often fires "no-speech" between phrases — ignore
-      if (err === "no-speech" || err === "aborted") return;
+      if (err === "no-speech" || err === "aborted") {
+        browserRecRef.current = null;
+        onListeningChange(false);
+        return;
+      }
 
       browserRecRef.current = null;
       onListeningChange(false);
@@ -225,8 +226,8 @@ export function DooogsAskBar({
       } else if (err === "network") {
         notice(
           locale === "fr"
-            ? "Reconnaissance vocale indisponible (réseau) — tape ta question."
-            : "Speech recognition needs network — please type your question."
+            ? "Reconnaissance vocale indisponible — tape ta question (Chrome/Edge recommandés)."
+            : "Speech recognition needs network — please type (Chrome/Edge work best)."
         );
       } else if (err) {
         notice(
@@ -238,18 +239,10 @@ export function DooogsAskBar({
     };
 
     rec.onend = () => {
-      // If still marked listening, the engine auto-stopped — restart once
-      if (browserRecRef.current === rec && !submittedRef.current) {
-        try {
-          rec.start();
-          return;
-        } catch {
-          /* fall through to submit */
-        }
-      }
       browserRecRef.current = null;
       onListeningChange(false);
       const draft = (finals || valueRef.current).trim();
+      // Auto-send when the engine ends a phrase (desktop); mobile users can tap stop earlier
       if (!submittedRef.current && draft.length >= 2) {
         submittedRef.current = true;
         onSubmit(draft, { fromMic: true });

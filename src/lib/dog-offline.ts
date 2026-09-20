@@ -152,42 +152,92 @@ export function getBreedKnowledgeSnippet(
     .slice(0, 500);
 }
 
+function topicAngle(
+  baseHtml: string,
+  topic: string | null,
+  locale: "en" | "fr",
+  breedId: string
+): string {
+  const name =
+    breedId === "pitbull"
+      ? locale === "fr"
+        ? "ces chiens bully"
+        : "these bully-type dogs"
+      : breedId.replace(/_/g, " ");
+
+  if (topic === "training") {
+    return locale === "fr"
+      ? `${baseHtml}<br><br>Côté éducation pour ${name}: sessions courtes et positives, laisse douce, socialisation variée. Récompense ce que tu veux revoir. Tu bosses un point précis (rappels, aboiements, propreté)?`
+      : `${baseHtml}<br><br>Training angle for ${name}: short positive sessions, soft leash manners, and varied socialization. Reward what you want to see again. Working on a specific snag (recall, barking, house manners)?`;
+  }
+  if (topic === "food") {
+    return locale === "fr"
+      ? `${baseHtml}<br><br>Alimentation: adapte les portions à l’activité, évite les restes gras, et jamais chocolat, xylitol, raisin, oignon. Tu veux des idées de friandises sûres?`
+      : `${baseHtml}<br><br>Food angle: match portions to activity, skip fatty scraps, and never chocolate, xylitol, grapes, or onions. Want safe treat ideas next?`;
+  }
+  if (topic === "grooming") {
+    return locale === "fr"
+      ? `${baseHtml}<br><br>Toilettage: rythme selon le poil, oreilles/yeux à surveiller, et un brossage régulier limite les nœuds et la mue. Tu veux un planning simple?`
+      : `${baseHtml}<br><br>Grooming angle: coat schedule, ears/eyes checks, and regular brushing cuts mats and shed. Want a simple care calendar?`;
+  }
+  if (topic === "apartment") {
+    return locale === "fr"
+      ? `${baseHtml}<br><br>Vie en appart: l’énergie compte plus que la taille — stimulation mentale + sorties qualité. Harnais solide en laisse. Ça colle à ton quotidien?`
+      : `${baseHtml}<br><br>Apartment life: energy matters more than size — mental work plus quality walks. Sturdy harness on leash. Does that fit your day?`;
+  }
+  if (topic === "health") {
+    return locale === "fr"
+      ? `${baseHtml}<br><br>Santé: choisis des éleveurs qui testent, garde un suivi véto, et surveille poids + articulations selon la morphologie. Tu veux les points de vigilance typiques?`
+      : `${baseHtml}<br><br>Health angle: prefer health-testing breeders, keep vet checkups, and watch weight plus joints for the build. Want typical watch-outs?`;
+  }
+
+  // Generic soft follow-up — still include real breed substance
+  return locale === "fr"
+    ? `${baseHtml}<br><br>Pour aller plus loin: éducation, alimentation, ou vie quotidienne — tu choisis.`
+    : `${baseHtml}<br><br>Want to go deeper on training, food, or day-to-day life next?`;
+}
+
 export function offlineDogReply(
   userText: string,
   locale: "en" | "fr",
   history?: Msg[]
 ): OfflineResult {
-  const followUp = /more|else|also|and |what about|tell me|encore|aussi|autre|et l|dis-moi|plus/i.test(
-    userText
-  );
-  const priorAssistant = [...(history || [])]
-    .reverse()
-    .find((m) => m.role === "assistant")?.content;
-  const priorBreed =
-    detectBreed(userText) ||
-    (priorAssistant ? detectBreed(priorAssistant) : null) ||
-    (history || [])
-      .map((m) => detectBreed(m.content))
-      .filter(Boolean)
-      .pop();
+  const namedNow = detectBreed(userText);
+  // Only soft follow-ups — never treat "tell me about Poodles" as a continuation
+  const softFollowUp =
+    !namedNow &&
+    /^(tell me more|more(?:\s+please)?|and then|what about (?:that|them|it|him|her)\b|how about (?:that|them|it)\b|go on|continue|another angle|dis-moi plus|encore|et (?:ensuite|après)|autre angle|continue|training tips|diet|foods?|éducation|alimentation|toilettage|grooming|apartment|appart)\b/i.test(
+      userText.trim()
+    );
 
-  // Follow-up on same breed → add a fresh angle instead of repeating the blurb
-  if (followUp && priorBreed && BREEDS[priorBreed]) {
-    const angles =
-      locale === "fr"
-        ? [
-            `Pour continuer sur cette race, côté vie quotidienne: rythme de promenades, stimulation mentale, et ce qu’il faut éviter à la maison. Tu veux qu’on parle éducation, alimentation, ou vie en appart?`,
-            `Autre angle: socialisation précoce, force en laisse, et compatibilité famille/enfants. Qu’est-ce qui t’intéresse le plus?`,
-            `Pour approfondir: santé typique à surveiller, toilettage, et où rencontrer de beaux sujets (clubs, expos). On commence par quoi?`,
-          ]
-        : [
-            `More on this breed day-to-day: walk rhythm, mental work, and what to keep out of the house. Want training, food, or apartment life next?`,
-            `Another angle: early socialization, leash manners, and family fit. What matters most to you right now?`,
-            `Let’s go deeper: typical health watch-outs, grooming, and where to meet great examples (clubs, shows). Where should we start?`,
-          ];
-    const pick = angles[(userText.length + (history?.length || 0)) % angles.length];
+  const priorBreed =
+    namedNow ||
+    (history || [])
+      .slice()
+      .reverse()
+      .map((m) => detectBreed(m.content))
+      .find(Boolean) ||
+    null;
+
+  const topic = (() => {
+    const t = userText.toLowerCase();
+    if (/train|éduc|puppy|chiot|leash|laisse|bark|aboie|obedi|sociali|training tips/.test(t))
+      return "training";
+    if (/food|diet|feed|eat|kibble|croquette|aliment|friandise|treat|diet &/.test(t))
+      return "food";
+    if (/groom|toilet|coat|poil|shed|mue|brush/.test(t)) return "grooming";
+    if (/apart|appartement|flat|condo|small space/.test(t)) return "apartment";
+    if (/health|santé|vet|véto/.test(t)) return "health";
+    return null;
+  })();
+
+  // Soft follow-up OR topic on prior breed → topic-angled answer, not a vague stub
+  if ((softFollowUp || (topic && !namedNow)) && priorBreed && BREEDS[priorBreed]) {
+    const entry = BREEDS[priorBreed];
+    const base = locale === "fr" ? entry.fr : entry.en;
+    const angled = topicAngle(base, topic, locale, priorBreed);
     return {
-      reply: pick,
+      reply: angled,
       suggestions:
         locale === "fr"
           ? ["Éducation", "Alimentation", "Autre race"]
@@ -195,8 +245,8 @@ export function offlineDogReply(
     };
   }
 
-  const breed = detectBreed(userText) || (followUp ? priorBreed : null);
-  if (breed) {
+  const breed = namedNow || (softFollowUp ? priorBreed : null);
+  if (breed && BREEDS[breed]) {
     const entry = BREEDS[breed];
     return {
       reply: locale === "fr" ? entry.fr : entry.en,

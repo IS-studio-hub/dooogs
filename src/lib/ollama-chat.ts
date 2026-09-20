@@ -8,7 +8,7 @@ import {
   parseReplyAndSuggestions,
   suggestionSystemExtra,
 } from "@/lib/dog-expert";
-import { offlineDogReply } from "@/lib/dog-offline";
+import { getBreedKnowledgeSnippet, offlineDogReply } from "@/lib/dog-offline";
 
 export type ChatMessage = {
   role: "user" | "assistant";
@@ -38,7 +38,13 @@ export async function chatWithOllama(
   locale: "en" | "fr"
 ): Promise<ChatResult> {
   const lastUser = cleaned[cleaned.length - 1]!.content;
-  const system = `${dogExpertSystemPrompt(locale)}\n\n${suggestionSystemExtra(locale)}`;
+  const snippet = getBreedKnowledgeSnippet(lastUser, locale);
+  const rag = snippet
+    ? locale === "fr"
+      ? `\n\nCONNAISSANCES RÉCUPÉRÉES (source de vérité):\n${snippet}`
+      : `\n\nRETRIEVED KNOWLEDGE (source of truth):\n${snippet}`
+    : "";
+  const system = `${dogExpertSystemPrompt(locale)}${rag}\n\n${suggestionSystemExtra(locale)}`;
   const base = ollamaBaseUrl();
   const model = ollamaModel();
 

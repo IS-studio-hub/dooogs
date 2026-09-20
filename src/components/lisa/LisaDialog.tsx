@@ -26,14 +26,17 @@ export function LisaDialog({
   useEffect(() => {
     setVisibleCount(0);
     let i = 0;
+    // Faster reveal for longer chat replies so the UI never feels stuck
+    const step = tokens.length > 80 ? 3 : tokens.length > 40 ? 2 : 1;
+    const delay = tokens.length > 120 ? 12 : 22;
     const id = window.setInterval(() => {
-      i += 1;
-      setVisibleCount(i);
+      i += step;
+      setVisibleCount(Math.min(i, tokens.length));
       if (i >= tokens.length) {
         window.clearInterval(id);
         onCompleteRef.current?.();
       }
-    }, 28);
+    }, delay);
     return () => window.clearInterval(id);
   }, [tokens]);
 

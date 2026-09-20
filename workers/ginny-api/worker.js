@@ -279,17 +279,22 @@ function breedContextFor(text, locale) {
   return "";
 }
 
-function buildSystem(locale, lastUser) {
+function buildSystem(locale, lastUser, extraContext) {
   const hint = breedContextFor(lastUser, locale);
   const breedBlock = hint
     ? locale === "fr"
       ? `\n\nCONTEXTE RACE (faits à utiliser):\n${hint}`
       : `\n\nBREED CONTEXT (use these facts):\n${hint}`
     : "";
-  return `${dogExpertSystemPrompt(locale)}${breedBlock}\n\n${suggestionSystemExtra(locale)}`;
+  const ragBlock = extraContext
+    ? locale === "fr"
+      ? `\n\nCONNAISSANCES RÉCUPÉRÉES (source de vérité — base-toi dessus):\n${String(extraContext).slice(0, 1200)}`
+      : `\n\nRETRIEVED KNOWLEDGE (source of truth — ground your answer here):\n${String(extraContext).slice(0, 1200)}`
+    : "";
+  return `${dogExpertSystemPrompt(locale)}${breedBlock}${ragBlock}\n\n${suggestionSystemExtra(locale)}`;
 }
 
-async function chatViaOllama(cleaned, locale, env) {
+async function chatViaOllama(cleaned, locale, env, extraContext) {
   const base = (env.OLLAMA_BASE_URL || DEFAULT_OLLAMA_BASE_URL || "")
     .trim()
     .replace(/\/+$/, "");
@@ -297,7 +302,7 @@ async function chatViaOllama(cleaned, locale, env) {
 
   const model = (env.OLLAMA_CHAT_MODEL || DEFAULT_OLLAMA_MODEL || "llama3.1:8b").trim();
   const lastUser = cleaned[cleaned.length - 1]?.content || "";
-  const system = buildSystem(locale, lastUser);
+  const system = buildSystem(locale, lastUser, extraContext);
   const upstream = await fetch(`${base}/v1/chat/completions`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -323,11 +328,11 @@ async function chatViaOllama(cleaned, locale, env) {
   };
 }
 
-async function chatViaWorkersAI(cleaned, locale, env) {
+async function chatViaWorkersAI(cleaned, locale, env, extraContext) {
   if (!env.AI) throw new Error("workers_ai_missing");
 
   const lastUser = cleaned[cleaned.length - 1]?.content || "";
-  const system = buildSystem(locale, lastUser);
+  const system = buildSystem(locale, lastUser, extraContext);
   const errors = [];
 
   for (const model of WORKERS_AI_MODELS) {
@@ -390,15 +395,19 @@ async function handleChat(req, env) {
   }
 
   const lastUser = cleaned[cleaned.length - 1].content;
+  const extraContext =
+    typeof body.context === "string" && body.context.trim()
+      ? body.context.trim().slice(0, 1200)
+      : "";
 
   function isWeak(reply) {
     const r = String(reply || "")
       .replace(/<[^>]+>/g, " ")
       .replace(/\s+/g, " ")
       .trim();
-    if (r.length < 90) return true;
+    if (r.length < 120) return true;
     if (
-      /paints a picture|which dog would match|match that vibe|ça ouvre plein d’images|quelle race collerait/i.test(
+      /paints a picture|which dog would match|match that vibe|ça ouvre plein d’images|quelle race collerait|More on this breed day-to-day/i.test(
         r
       )
     ) {
@@ -411,7 +420,7 @@ async function handleChat(req, env) {
   try {
     // Primary: Workers AI (same on every device)
     try {
-      const ai = await chatViaWorkersAI(cleaned, locale, env);
+      const ai = await chatViaWorkersAI(cleaned, locale, env, extraContext);
       if (ai?.reply && !isWeak(ai.reply)) return json(req, ai);
       if (ai?.reply) return json(req, ai);
       errors.push("workers_ai_weak_or_empty");
@@ -421,7 +430,7 @@ async function handleChat(req, env) {
 
     // Optional secondary Ollama if configured
     try {
-      const ollama = await chatViaOllama(cleaned, locale, env);
+      const ollama = await chatViaOllama(cleaned, locale, env, extraContext);
       if (ollama?.reply && !isWeak(ollama.reply)) return json(req, ollama);
       if (ollama?.reply) return json(req, ollama);
       if (env.OLLAMA_BASE_URL) errors.push("ollama_weak_or_empty");

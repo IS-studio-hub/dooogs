@@ -11,10 +11,9 @@ import {
   type Locale,
 } from "@/lib/lisa-types";
 import { speakDooogs, unlockDooogsAudio } from "@/lib/dooogs-voice";
-import { apiUrl } from "@/lib/api-url";
 import { withBase } from "@/lib/base-path";
+import { runDogChatTurn, type ChatMessage } from "@/lib/dog-chat-engine";
 import { offlineDogReply } from "@/lib/dog-offline";
-import { isWeakDogReply } from "@/lib/dog-expert";
 import { isSafeHttpUrl, sanitizeDialogHtml, stripHtml } from "@/lib/safe-html";
 import { DooogsAskBar } from "./DooogsAskBar";
 import { LisaDialog } from "./LisaDialog";
@@ -23,11 +22,6 @@ import { LisaMedia } from "./LisaMedia";
 type HistoryEntry = {
   id: string;
   dialogHtml: string;
-};
-
-type ChatMessage = {
-  role: "user" | "assistant";
-  content: string;
 };
 
 export function LisaApp({
@@ -183,63 +177,33 @@ export function LisaApp({
           { id: stepIdRef.current, dialogHtml: dialogHtmlRef.current },
         ]);
       }
-      const thinkingLine =
-        locale === "fr" ? "…" : "…";
       setStepId("chat");
-      setDialogHtml(thinkingLine);
+      setDialogHtml("…");
       setTypingDone(false);
       setExpanded(false);
 
+      // Hard safety: never leave the UI locked if something hangs
+      const safety = window.setTimeout(() => {
+        askingRef.current = false;
+        setThinking(false);
+      }, 18_000);
+
       try {
-        let reply = "";
-        let suggestions: string[] | null = null;
-        let fromLiveAi = false;
-
-        // Cloudflare Worker (Workers AI when available)
+        const turn = await runDogChatTurn(text, locale, chatMessages, {
+          timeoutMs: 12_000,
+        });
+        setChatMessages((m) => [
+          ...m,
+          { role: "assistant", content: turn.reply },
+        ]);
+        setAiSuggestions(turn.suggestions);
+        showAssistantReply(turn.reply, { pushPrior: false });
+        // Voice must not block the next ask
         try {
-          const res = await fetch(apiUrl("/api/chat"), {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ messages: nextMessages, locale }),
-          });
-          if (res.ok) {
-            const data = (await res.json()) as {
-              reply?: string;
-              suggestions?: string[];
-              source?: string;
-            };
-            reply = data.reply?.trim() || "";
-            fromLiveAi = Boolean(
-              reply &&
-                data.source &&
-                !data.source.startsWith("offline")
-            );
-            if (Array.isArray(data.suggestions) && data.suggestions.length) {
-              suggestions = data.suggestions;
-            }
-          }
+          playVoice(turn.reply, { force: true });
         } catch {
-          /* fall through to offline */
+          /* ignore */
         }
-
-        // Prefer rich local knowledge when AI is offline / thin / missing
-        if (!fromLiveAi || !reply || isWeakDogReply(text, reply)) {
-          const offline = offlineDogReply(text, locale, nextMessages);
-          if (
-            !reply ||
-            !fromLiveAi ||
-            isWeakDogReply(text, reply) ||
-            offline.reply.length > reply.length + 40
-          ) {
-            reply = offline.reply;
-            suggestions = offline.suggestions;
-          }
-        }
-
-        setChatMessages((m) => [...m, { role: "assistant", content: reply }]);
-        setAiSuggestions(suggestions);
-        showAssistantReply(reply, { pushPrior: false });
-        playVoice(reply, { force: true });
       } catch {
         const offline = offlineDogReply(text, locale, nextMessages);
         setChatMessages((m) => [
@@ -250,6 +214,7 @@ export function LisaApp({
         showAssistantReply(offline.reply, { pushPrior: false });
         playVoice(offline.reply, { force: true });
       } finally {
+        window.clearTimeout(safety);
         setThinking(false);
         askingRef.current = false;
       }
