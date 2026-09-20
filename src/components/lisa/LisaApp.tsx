@@ -43,6 +43,8 @@ export function LisaApp({
   const [expanded, setExpanded] = useState(false);
   const [typingDone, setTypingDone] = useState(false);
   const [muted, setMuted] = useState(true);
+  const mutedRef = useRef(true);
+  mutedRef.current = muted;
   const [model, setModel] = useState<LisaModel>({});
   const [toast, setToast] = useState<string | null>(null);
   const [documentTitle, setDocumentTitle] = useState("Dooogs!");
@@ -128,6 +130,27 @@ export function LisaApp({
     []
   );
 
+  const playVoice = useCallback(
+    (html: string, opts?: { force?: boolean }) => {
+      if (!opts?.force && mutedRef.current) return;
+      const clean = sanitizeDialogHtml(html);
+      if (!clean || clean === "…" || /thinking…|je réfléchis/i.test(clean)) return;
+      unlockDooogsAudio();
+      voiceStopRef.current?.();
+      const ambient = audioRef.current;
+      const { stop } = speakDooogs(clean, locale, {
+        onStart: () => {
+          if (ambient) ambient.volume = 0.06;
+        },
+        onEnd: () => {
+          if (ambient && !mutedRef.current) ambient.volume = 0.28;
+        },
+      });
+      voiceStopRef.current = stop;
+    },
+    [locale]
+  );
+
   const askDog = useCallback(
     async (userText: string, opts?: { fromMic?: boolean }) => {
       const text = userText.trim();
@@ -141,6 +164,7 @@ export function LisaApp({
 
       // User gesture path — unlock mobile audio and turn voice on for a live chat feel
       unlockDooogsAudio();
+      mutedRef.current = false;
       setMuted(false);
 
       askingRef.current = true;
@@ -202,6 +226,7 @@ export function LisaApp({
         setChatMessages((m) => [...m, { role: "assistant", content: reply }]);
         setAiSuggestions(suggestions);
         showAssistantReply(reply, { pushPrior: false });
+        playVoice(reply, { force: true });
       } catch {
         const offline = offlineDogReply(text, locale, nextMessages);
         setChatMessages((m) => [
@@ -210,12 +235,13 @@ export function LisaApp({
         ]);
         setAiSuggestions(offline.suggestions);
         showAssistantReply(offline.reply, { pushPrior: false });
+        playVoice(offline.reply, { force: true });
       } finally {
         setThinking(false);
         askingRef.current = false;
       }
     },
-    [chatMessages, locale, showAssistantReply]
+    [chatMessages, locale, showAssistantReply, playVoice]
   );
 
   const goTo = useCallback(
@@ -268,36 +294,8 @@ export function LisaApp({
     }
   }, [muted]);
 
-  // Speak when the final assistant reply lands (TTS, with browser fallback)
-  useEffect(() => {
-    if (muted || thinking || !dialogHtml) return;
-    if (dialogHtml === "…" || /thinking…|je réfléchis/i.test(dialogHtml)) return;
-
-    let cancelled = false;
-    const ambient = audioRef.current;
-    // Defer so React Strict Mode remount doesn't permanently kill speech
-    const timer = window.setTimeout(() => {
-      if (cancelled) return;
-      voiceStopRef.current?.();
-      const { stop } = speakDooogs(dialogHtml, locale, {
-        onStart: () => {
-          if (ambient) ambient.volume = 0.08;
-        },
-        onEnd: () => {
-          if (ambient && !muted) ambient.volume = 0.28;
-        },
-      });
-      voiceStopRef.current = stop;
-    }, 60);
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-      voiceStopRef.current?.();
-      voiceStopRef.current = null;
-      if (ambient && !muted) ambient.volume = 0.28;
-    };
-  }, [dialogHtml, muted, locale, thinking]);
+  // Replies speak via playVoice(); unmute speaks from the sound button click.
+  // (Avoid an effect here — it would cancel gesture-started speech on re-render.)
 
   const onTypingComplete = useCallback(() => {
     if (typingLock.current) return;
@@ -406,6 +404,7 @@ export function LisaApp({
 
   function handleAskSubmit(text: string, meta?: { fromMic?: boolean }) {
     unlockDooogsAudio();
+    mutedRef.current = false;
     setMuted(false);
     setSheetOpen(true);
     void askDog(text, { fromMic: Boolean(meta?.fromMic) });
@@ -556,7 +555,18 @@ export function LisaApp({
         aria-pressed={!muted}
         onClick={() => {
           unlockDooogsAudio();
-          setMuted((m) => !m);
+          setMuted((m) => {
+            const next = !m;
+            mutedRef.current = next;
+            // Speak current reply inside the click gesture (no setTimeout)
+            if (m && dialogHtmlRef.current && dialogHtmlRef.current !== "…") {
+              playVoice(dialogHtmlRef.current, { force: true });
+            } else if (!m) {
+              voiceStopRef.current?.();
+              voiceStopRef.current = null;
+            }
+            return next;
+          });
         }}
       >
         <span className="c-lisa_sound-icon -on" aria-hidden="true">
