@@ -153,8 +153,8 @@ export function speakDooogs(
       await new Promise<void>((resolve) => {
         const utter = new SpeechSynthesisUtterance(chunk);
         utter.lang = locale === "fr" ? "fr-CA" : "en-US";
-        utter.rate = 0.96;
-        utter.pitch = 1.02;
+        utter.rate = 0.94;
+        utter.pitch = 1.05;
         utter.volume = 1;
         if (voice) utter.voice = voice;
         utter.onend = () => resolve();

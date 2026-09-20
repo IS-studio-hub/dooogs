@@ -49,7 +49,13 @@ export async function tryBrowserOllama(
   const system = `${dogExpertSystemPrompt(locale)}\n\n${suggestionSystemExtra(locale)}`;
 
   const ctrl = new AbortController();
-  const timer = window.setTimeout(() => ctrl.abort(), 90_000);
+  // Phones shouldn't hang on a dead tunnel — fail fast to worker/offline answers
+  const isLocal =
+    typeof window !== "undefined" &&
+    (window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1");
+  const timeoutMs = isLocal ? 60_000 : 12_000;
+  const timer = window.setTimeout(() => ctrl.abort(), timeoutMs);
 
   try {
     const res = await fetch(`${base}/v1/chat/completions`, {

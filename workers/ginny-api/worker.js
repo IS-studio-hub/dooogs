@@ -45,17 +45,21 @@ function dogExpertSystemPrompt(locale) {
 MISSION
 - Répondre UNIQUEMENT dans l’univers des chiens: races (FCI, AKC, Kennel Club, etc.), histoire, caractère, alimentation (y compris toxiques), éducation, toilettage, santé typique, sport canin, voyage avec un chien, choix de race, clubs/expos.
 - Mémoriser le fil et gérer les suivis sans faire répéter l’utilisateur.
+- Tu connais aussi les types “bully” / pit bull (American Pit Bull Terrier, American Staffordshire Terrier, Staffordshire Bull Terrier): origines, caractère, besoins, mythes vs réalité — nuance, pas sensationnalisme.
+
+RÈGLE D’OR — RÉPONDRE D’ABORD
+- Si l’utilisateur nomme une race ou pose une vraie question chiens: DONNE une réponse utile tout de suite (histoire, caractère, énergie, soins).
+- INTERDIT de seulement reformuler sa question ou de répondre par une vague question “quelle vibe?”.
+- Une question douce à la FIN est OK; le corps doit être informatif (3–5 phrases riches).
 
 HORS SUJET (OBLIGATOIRE)
-- Si le message n’est pas vraiment sur les chiens: ne développe PAS le sujet (pas de tutoriel, pas d’actualité générale, pas de conseils hors chiens).
-- Accroche-toi au sujet en 1 phrase légère ou une image amusante, puis bascule tout de suite vers un angle CHIENS lié (métaphore, anecdote de race, friandise, promenade, caractère…).
-- Exemples de ponts: cuisine → aliments toxiques / friandises; voyage → avion/voiture avec un chien; sport → agility/canicross; films → chiens célèbres au cinéma; météo → races et climat; tech → colliers GPS / éducation; romance → races “câlines”; travail → chiens d’assistance/police.
-- INTERDIT de dire (ou d’insinuer): “je ne parle que de chiens”, “hors sujet”, “je suis limitée aux chiens”, “revenons aux chiens parce que c’est mon rôle”. Le pivot doit paraître naturel et curieux, jamais policé.
+- Si le message n’est pas vraiment sur les chiens: accroche en 1 phrase, puis bascule vers un angle CHIENS.
+- INTERDIT de dire: “je ne parle que de chiens”, “hors sujet”.
 
 STYLE
 - Français naturel, clair, conversationnel. Phrases courtes à moyennes.
 - Tu peux utiliser <br> pour les sauts de ligne. Pas de markdown (#, **, bullets -).
-- Environ 80–180 mots sauf demande de plus de détail.
+- Environ 90–200 mots sauf demande de plus de détail.
 - Termine souvent par une question douce liée aux chiens.
 
 SORTIE
@@ -66,17 +70,21 @@ SORTIE
 MISSION
 - Stay ONLY in the dog world: breeds worldwide (FCI, AKC, The Kennel Club, etc.), history, personality, food (including toxic foods), training, grooming, typical health notes, dog sports, traveling with dogs, choosing a breed, clubs/shows.
 - Remember conversation context and handle follow-ups without making the user repeat themselves.
+- You know “bully” / pit bull–type dogs (American Pit Bull Terrier, American Staffordshire Terrier, Staffordshire Bull Terrier): origins, temperament, needs, myths vs reality — nuanced, never sensational.
+
+GOLDEN RULE — ANSWER FIRST
+- If the user names a breed or asks a real dog question: give a useful answer immediately (history, temperament, energy, care).
+- NEVER only restate their question or reply with a vague vibes question instead of facts.
+- One soft follow-up at the END is fine; the body must be informative (3–5 rich sentences).
 
 OFF-TOPIC (REQUIRED)
-- If the message isn’t really about dogs: do NOT develop that topic (no general tutorials, news explainers, or non-dog advice).
-- Hook the user’s subject in one light line or playful image, then immediately pivot into a related DOG angle (breed metaphor, treat tip, walk vibe, famous dog, training parallel…).
-- Bridge examples: cooking → toxic foods / safe treats; travel → flying or road-tripping with a dog; sports → agility/canicross; movies → famous film dogs; weather → breeds and climate; tech → GPS collars / training tools; romance → cuddly companion breeds; work → service/police dogs.
-- NEVER say or imply: “I only talk about dogs”, “that’s off-topic”, “I’m limited to dogs”, “let’s get back to dogs because that’s my job”. The pivot must feel natural and curious — never policed.
+- If the message isn’t really about dogs: hook in one light line, then immediately pivot into a related DOG angle.
+- NEVER say: “I only talk about dogs”, “that’s off-topic”.
 
 STYLE
 - Natural, clear conversational English. Short-to-medium sentences.
 - You may use <br> for line breaks. No markdown headings, bold markers, or "- " bullets.
-- Roughly 80–180 words unless the user asks for more depth.
+- Roughly 90–200 words unless the user asks for more depth.
 - Often end with a soft dog-related follow-up question.
 
 OUTPUT
@@ -124,6 +132,7 @@ function offlineDogReply(userText, locale) {
     { keys: ["boxer"], en: "Boxers are bouncy loyal working dogs with a square muzzle. Daily exercise and training; short coats feel cold and heat.", fr: "Le Boxer est joueur et loyal — exercice et éducation quotidiens." },
     { keys: ["yorkshire", "yorkie"], en: "Yorkshire Terriers are tiny confident toy terriers. Dental care, coat upkeep, gentle handling; never chocolate or xylitol.", fr: "Le Yorkshire est un toy terrier confiant — soins dentaires et toilettage." },
     { keys: ["akita"], en: "Akitas are large dignified Japanese spitz dogs. Experienced handling, socialization, and space; thick seasonal coat.", fr: "L’Akita est un grand spitz japonais digne — main experte et socialisation." },
+    { keys: ["pitbull", "pit bull", "pit-bull", "pittie", "pitty", "american pit bull", "amstaff", "american staffordshire", "staffordshire bull", "staffy", "staffie", "bully"], en: "“Pit bull” usually means bully-type dogs like the American Pit Bull Terrier, plus cousins such as the American Staffordshire Terrier and Staffordshire Bull Terrier — not one single worldwide kennel name. Bull-and-terrier roots; many are affectionate, athletic, and people-oriented when raised well. Need daily exercise, early socialization, solid manners, and a consistent owner. Sturdy harness on walks; never chocolate, grapes, xylitol, or onions. Responsible ownership and local laws matter more than labels.", fr: "« Pit bull » désigne surtout des bully comme l’American Pit Bull Terrier, proches de l’AmStaff et du Staffordshire Bull Terrier. Racines bull-and-terrier; souvent affectueux, athlétiques et orientés humain si bien élevés. Exercice, socialisation, manières, propriétaire constant. Harnais solide; jamais chocolat, raisin, xylitol, oignon. La responsabilité compte plus que l’étiquette." },
   ];
   for (const b of breeds) {
     if (b.keys.some((k) => t.includes(k))) {
@@ -168,7 +177,7 @@ function offlineDogReply(userText, locale) {
   }
 
   const doggy =
-    /dog|chien|breed|race|puppy|chiot|canine|groom|toilet|train|éduc|walk|promenade|bark|aboie|leash|laisse|vet|véto|kibble|croquette|toxic|chocolat|xylitol|akc|fci/.test(
+    /dog|chien|breed|race|puppy|chiot|canine|groom|toilet|train|éduc|walk|promenade|bark|aboie|leash|laisse|vet|véto|kibble|croquette|toxic|chocolat|xylitol|akc|fci|pitbull|pit bull|pittie|stafford|amstaff|staffy|bully|tell me about|parle[- ]moi|about the/.test(
       t
     );
   if (!doggy) {
@@ -313,12 +322,38 @@ async function handleChat(req, env) {
 
   const lastUser = cleaned[cleaned.length - 1].content;
 
+  function isWeak(reply) {
+    const r = String(reply || "")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (r.length < 90) return true;
+    if (
+      /paints a picture|which dog would match|match that vibe|ça ouvre plein d’images|quelle race collerait/i.test(
+        r
+      )
+    ) {
+      return true;
+    }
+    return false;
+  }
+
   try {
     const ollama = await chatViaOllama(cleaned, locale, env);
-    if (ollama) return json(req, ollama);
+    if (ollama?.reply && !isWeak(ollama.reply)) return json(req, ollama);
 
-    const ai = await chatViaWorkersAI(cleaned, locale, env);
-    return json(req, ai);
+    try {
+      const ai = await chatViaWorkersAI(cleaned, locale, env);
+      if (ai?.reply && !isWeak(ai.reply)) return json(req, ai);
+      if (ai?.reply && !ollama?.reply) return json(req, ai);
+    } catch {
+      /* fall through */
+    }
+
+    if (ollama?.reply) return json(req, ollama);
+
+    const offline = offlineDogReply(lastUser, locale);
+    return json(req, { ...offline, source: "offline_fallback" });
   } catch (err) {
     const offline = offlineDogReply(lastUser, locale);
     return json(req, {
@@ -389,7 +424,7 @@ function splitTtsChunks(text, maxLen = 160) {
 async function synthesizeSharedTts(text, locale) {
   const chunks = splitTtsChunks(text);
   if (!chunks.length) throw new Error("empty_text");
-  const tl = locale === "fr" ? "fr" : "en";
+  const tl = locale === "fr" ? "fr" : "en-US";
   const parts = [];
   for (const chunk of chunks) {
     const url =

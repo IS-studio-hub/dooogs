@@ -15,6 +15,7 @@ import { apiUrl } from "@/lib/api-url";
 import { withBase } from "@/lib/base-path";
 import { offlineDogReply } from "@/lib/dog-offline";
 import { tryBrowserOllama } from "@/lib/browser-ollama";
+import { isWeakDogReply } from "@/lib/dog-expert";
 import { isSafeHttpUrl, sanitizeDialogHtml, stripHtml } from "@/lib/safe-html";
 import { DooogsAskBar } from "./DooogsAskBar";
 import { LisaDialog } from "./LisaDialog";
@@ -170,7 +171,7 @@ export function LisaApp({
         let reply = "";
         let suggestions: string[] | null = null;
 
-        // 1) Free local Ollama in the browser when available
+        // 1) Free local / tunnel Ollama when available (short timeout on phones)
         const local = await tryBrowserOllama(nextMessages, locale);
         if (local?.reply) {
           reply = local.reply;
@@ -178,29 +179,43 @@ export function LisaApp({
         }
 
         // 2) Cloudflare Worker (Workers AI / remote Ollama)
-        if (!reply) {
-          const res = await fetch(apiUrl("/api/chat"), {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ messages: nextMessages, locale }),
-          });
-          if (res.ok) {
-            const data = (await res.json()) as {
-              reply?: string;
-              suggestions?: string[];
-            };
-            reply = data.reply?.trim() || "";
-            if (Array.isArray(data.suggestions) && data.suggestions.length) {
-              suggestions = data.suggestions;
+        if (!reply || isWeakDogReply(text, reply)) {
+          try {
+            const res = await fetch(apiUrl("/api/chat"), {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ messages: nextMessages, locale }),
+            });
+            if (res.ok) {
+              const data = (await res.json()) as {
+                reply?: string;
+                suggestions?: string[];
+              };
+              const workerReply = data.reply?.trim() || "";
+              if (workerReply && !isWeakDogReply(text, workerReply)) {
+                reply = workerReply;
+                if (Array.isArray(data.suggestions) && data.suggestions.length) {
+                  suggestions = data.suggestions;
+                }
+              } else if (!reply && workerReply) {
+                reply = workerReply;
+                if (Array.isArray(data.suggestions) && data.suggestions.length) {
+                  suggestions = data.suggestions;
+                }
+              }
             }
+          } catch {
+            /* fall through to offline */
           }
         }
 
-        if (!reply) {
+        // 3) Rich offline breed knowledge — always beat vague / empty replies
+        if (!reply || isWeakDogReply(text, reply)) {
           const offline = offlineDogReply(text, locale, nextMessages);
           reply = offline.reply;
           suggestions = offline.suggestions;
         }
+
         setChatMessages((m) => [...m, { role: "assistant", content: reply }]);
         setAiSuggestions(suggestions);
         // Thinking line is current — replace in place (prior reply already archived)

@@ -99,6 +99,24 @@ const BREEDS: Record<
     en: `Akitas are large Japanese spitz dogs — dignified, loyal, and powerful.<br><br>From northern Japan; symbols of loyalty (Hachikō). Two related types: Japanese Akita and American Akita lines.<br><br>Need experienced handling, socialization, and space. Thick coat; seasonal shed. Avoid toxic foods.<br><br>See Akita clubs, companion specialties, and cultural breed events.`,
     fr: `L’Akita est un grand spitz japonais — digne, loyal, puissant.<br><br>Nord du Japon; symbole de loyauté (Hachikō). Lignes japonaise et américaine.<br><br>Main experte, socialisation, espace. Poil dense, mue. Évite aliments toxiques.<br><br>Clubs Akita et expos.`,
   },
+  pitbull: {
+    keys: [
+      "pitbull",
+      "pit bull",
+      "pit-bull",
+      "pittie",
+      "pitty",
+      "american pit bull",
+      "amstaff",
+      "american staffordshire",
+      "staffordshire bull",
+      "staffy",
+      "staffie",
+      "bully breed",
+    ],
+    en: `“Pit bull” usually means a family of strong, muscular bully-type dogs — most often the American Pit Bull Terrier, plus close cousins like the American Staffordshire Terrier and Staffordshire Bull Terrier (not one single worldwide kennel-club breed name everywhere).<br><br>History: 19th-century bull-and-terrier roots in Britain and later the US — athletic, people-oriented working dogs. Many are affectionate, clownish, and loyal with their humans when raised well.<br><br>Needs: daily exercise, solid manners, early socialization, and a confident, consistent owner. They’re often food-motivated and love training games. Mind strength on leash; use a sturdy harness. Never chocolate, grapes, xylitol, or onions.<br><br>Responsible ownership matters more than labels: training, secure fencing, and knowing local laws. Want training tips, apartment life notes, or how AmStaff vs Staffy differ?`,
+    fr: `« Pit bull » désigne surtout une famille de chiens bully musclés — souvent l’American Pit Bull Terrier, proches de l’American Staffordshire Terrier et du Staffordshire Bull Terrier (le nom exact varie selon les pays et clubs).<br><br>Histoire: croisements bull-and-terrier au XIXe (GB puis USA) — chiens athlétiques, souvent très orientés vers l’humain. Bien élevés, beaucoup sont affectueux, joueurs et loyaux.<br><br>Besoins: exercice quotidien, bonnes manières, socialisation précoce, propriétaire constant. Motivés par la nourriture, adorent les jeux d’éducation. Force en laisse → harnais solide. Jamais chocolat, raisin, xylitol, oignon.<br><br>La responsabilité compte plus que l’étiquette: éducation, clôture, règles locales. Tu veux éducation, vie en appart, ou différences AmStaff / Staffy?`,
+  },
 };
 
 function detectBreed(text: string): keyof typeof BREEDS | null {
@@ -112,7 +130,7 @@ function detectBreed(text: string): keyof typeof BREEDS | null {
 function isOffTopic(text: string): boolean {
   const t = text.toLowerCase();
   const doggy =
-    /dog|chien|breed|race|puppy|chiot|canine|labrador|poodle|caniche|shepherd|berger|beagle|collie|teckel|dachshund|golden|frenchie|bouledogue|husky|shiba|bulldog|yorkie|yorkshire|boxer|rott|aussie|australian|corgi|maltese|akita|akc|fci|groom|toilet|train|éduc|walk|promenade|bark|aboie|leash|laisse|vet|véto|kibble|croquette|toxic|chocolat|xylitol/.test(
+    /dog|chien|breed|race|puppy|chiot|canine|labrador|poodle|caniche|shepherd|berger|beagle|collie|teckel|dachshund|golden|frenchie|bouledogue|husky|shiba|bulldog|yorkie|yorkshire|boxer|rott|aussie|australian|corgi|maltese|akita|pitbull|pit bull|pittie|stafford|amstaff|staffy|staffie|bully|akc|fci|groom|toilet|train|éduc|walk|promenade|bark|aboie|leash|laisse|vet|véto|kibble|croquette|toxic|chocolat|xylitol|tell me about|parle[- ]moi|c’est quoi|c'est quoi|what about|about the/.test(
       t
     );
   return !doggy;
