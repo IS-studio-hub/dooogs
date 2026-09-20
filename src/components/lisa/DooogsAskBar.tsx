@@ -6,6 +6,22 @@ import type { Locale } from "@/lib/lisa-types";
 import { apiUrl } from "@/lib/api-url";
 import { unlockDooogsAudio } from "@/lib/dooogs-voice";
 
+type BrowserRec = {
+  lang: string;
+  interimResults: boolean;
+  continuous: boolean;
+  onresult: ((ev: {
+    results: {
+      [i: number]: { [j: number]: { transcript: string }; isFinal: boolean };
+    };
+  }) => void) | null;
+  onerror: (() => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+  abort: () => void;
+};
+
 function pickRecorderMime(): string {
   if (typeof MediaRecorder === "undefined") return "";
   const candidates = [
@@ -17,6 +33,15 @@ function pickRecorderMime(): string {
     "audio/ogg",
   ];
   return candidates.find((t) => MediaRecorder.isTypeSupported(t)) || "";
+}
+
+function getSpeechRecognitionCtor(): (new () => BrowserRec) | null {
+  if (typeof window === "undefined") return null;
+  const w = window as unknown as {
+    SpeechRecognition?: new () => BrowserRec;
+    webkitSpeechRecognition?: new () => BrowserRec;
+  };
+  return w.SpeechRecognition || w.webkitSpeechRecognition || null;
 }
 
 export function DooogsAskBar({
@@ -40,6 +65,7 @@ export function DooogsAskBar({
   const [transcribing, setTranscribing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const mediaRef = useRef<MediaRecorder | null>(null);
+  const browserRecRef = useRef<BrowserRec | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   const maxTimerRef = useRef<number | null>(null);
@@ -49,6 +75,11 @@ export function DooogsAskBar({
   useEffect(() => {
     return () => {
       teardownRecorder();
+      try {
+        browserRecRef.current?.abort();
+      } catch {
+        /* ignore */
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -75,7 +106,8 @@ export function DooogsAskBar({
 
   async function transcribeBlob(blob: Blob): Promise<string | null> {
     const form = new FormData();
-    const ext = blob.type.includes("mp4") || blob.type.includes("aac") ? "m4a" : "webm";
+    const ext =
+      blob.type.includes("mp4") || blob.type.includes("aac") ? "m4a" : "webm";
     form.append("audio", blob, `dooogs-mic.${ext}`);
     form.append("locale", locale);
 
@@ -84,9 +116,8 @@ export function DooogsAskBar({
       body: form,
     });
     if (!res.ok) return null;
-    const data = (await res.json()) as { text?: string; error?: string };
-    const text = data.text?.trim() || "";
-    return text || null;
+    const data = (await res.json()) as { text?: string };
+    return data.text?.trim() || null;
   }
 
   async function finishRecording(blob: Blob | null) {
@@ -108,8 +139,8 @@ export function DooogsAskBar({
       if (!text) {
         notice(
           locale === "fr"
-            ? "Transcription impossible — tape ta question."
-            : "Couldn’t transcribe — please type your question."
+            ? "Je n’ai pas compris — réessaie ou tape ta question."
+            : "Couldn’t understand that — try again or type your question."
         );
         return;
       }
@@ -127,9 +158,9 @@ export function DooogsAskBar({
     }
   }
 
-  async function startListening() {
-    unlockDooogsAudio();
-    if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+  function startWebSpeechFallback() {
+    const Ctor = getSpeechRecognitionCtor();
+    if (!Ctor) {
       notice(
         locale === "fr"
           ? "Micro non supporté — tape ta question."
@@ -137,12 +168,64 @@ export function DooogsAskBar({
       );
       return;
     }
-    if (typeof MediaRecorder === "undefined") {
+    const rec = new Ctor();
+    rec.lang = locale === "fr" ? "fr-FR" : "en-US";
+    rec.interimResults = true;
+    rec.continuous = false;
+    rec.onresult = (ev) => {
+      let finalText = "";
+      let interim = "";
+      for (
+        let i = 0;
+        i < (ev.results as unknown as { length: number }).length;
+        i++
+      ) {
+        const row = ev.results[i];
+        const piece = row?.[0]?.transcript ?? "";
+        if (row?.isFinal) finalText += piece;
+        else interim += piece;
+      }
+      const next = (finalText || interim).trim();
+      if (next) setValue(next);
+      if (finalText.trim()) {
+        browserRecRef.current = null;
+        onListeningChange(false);
+        onSubmit(finalText.trim(), { fromMic: true });
+        setValue("");
+      }
+    };
+    rec.onerror = () => {
+      browserRecRef.current = null;
+      onListeningChange(false);
+    };
+    rec.onend = () => {
+      browserRecRef.current = null;
+      onListeningChange(false);
+    };
+    browserRecRef.current = rec;
+    onListeningChange(true);
+    try {
+      rec.start();
+    } catch {
+      browserRecRef.current = null;
+      onListeningChange(false);
       notice(
         locale === "fr"
-          ? "Enregistrement non supporté — tape ta question."
-          : "Recording not supported — please type your question."
+          ? "Micro indisponible — tape ta question."
+          : "Microphone unavailable — please type your question."
       );
+    }
+  }
+
+  async function startListening() {
+    unlockDooogsAudio();
+
+    if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+      startWebSpeechFallback();
+      return;
+    }
+    if (typeof MediaRecorder === "undefined") {
+      startWebSpeechFallback();
       return;
     }
 
@@ -180,7 +263,6 @@ export function DooogsAskBar({
       mediaRef.current = recorder;
       recorder.start(250);
       onListeningChange(true);
-      // Auto-stop so Whisper gets a bounded clip
       maxTimerRef.current = window.setTimeout(() => {
         if (mediaRef.current?.state === "recording") {
           try {
@@ -198,19 +280,25 @@ export function DooogsAskBar({
             ? "Autorise le micro dans le navigateur, ou tape ta question."
             : "Allow microphone access, or type your question."
         );
-      } else {
-        notice(
-          locale === "fr"
-            ? "Micro indisponible — tape ta question."
-            : "Microphone unavailable — please type your question."
-        );
+        teardownRecorder();
+        onListeningChange(false);
+        return;
       }
-      teardownRecorder();
-      onListeningChange(false);
+      startWebSpeechFallback();
     }
   }
 
   function stopListening() {
+    if (browserRecRef.current) {
+      try {
+        browserRecRef.current.stop();
+      } catch {
+        /* ignore */
+      }
+      browserRecRef.current = null;
+      onListeningChange(false);
+      return;
+    }
     if (maxTimerRef.current) {
       window.clearTimeout(maxTimerRef.current);
       maxTimerRef.current = null;
@@ -323,7 +411,14 @@ export function DooogsAskBar({
           >
             <svg viewBox="0 0 24 24" aria-hidden="true">
               {listening ? (
-                <rect x="7" y="7" width="10" height="10" rx="1.5" fill="currentColor" />
+                <rect
+                  x="7"
+                  y="7"
+                  width="10"
+                  height="10"
+                  rx="1.5"
+                  fill="currentColor"
+                />
               ) : (
                 <>
                   <path
