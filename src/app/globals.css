@@ -968,6 +968,7 @@ html:not(.has-menu-opened) .c-menu {
 @media (min-width: 1024px) {
   .c-dooogs-ask {
     max-width: min(36rem, 100%);
+    padding-bottom: 1.5rem;
   }
 }
 

@@ -53,7 +53,6 @@ export function LisaApp({
   const [sheetOpen, setSheetOpen] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
   const voiceStopRef = useRef<(() => void) | null>(null);
-  const lastSpokenRef = useRef("");
   const autoTimer = useRef<number | null>(null);
   const typingLock = useRef(false);
   const dialogHtmlRef = useRef("");
@@ -269,36 +268,32 @@ export function LisaApp({
     }
   }, [muted]);
 
-  // Speak once when the final assistant reply lands (shared TTS only)
+  // Speak when the final assistant reply lands (TTS, with browser fallback)
   useEffect(() => {
     if (muted || thinking || !dialogHtml) return;
     if (dialogHtml === "…" || /thinking…|je réfléchis/i.test(dialogHtml)) return;
-    if (lastSpokenRef.current === dialogHtml) return;
 
-    lastSpokenRef.current = dialogHtml;
-    voiceStopRef.current?.();
-    voiceStopRef.current = null;
-
+    let cancelled = false;
     const ambient = audioRef.current;
-    const { stop } = speakDooogs(dialogHtml, locale, {
-      onStart: () => {
-        if (ambient) ambient.volume = 0.08;
-      },
-      onEnd: () => {
-        if (ambient && !muted) ambient.volume = 0.28;
-      },
-      onError: () => {
-        setToast(
-          locale === "fr"
-            ? "Voix indisponible un instant — le texte est là."
-            : "Voice unavailable briefly — text still works."
-        );
-        window.setTimeout(() => setToast(null), 2800);
-      },
-    });
-    voiceStopRef.current = stop;
+    // Defer so React Strict Mode remount doesn't permanently kill speech
+    const timer = window.setTimeout(() => {
+      if (cancelled) return;
+      voiceStopRef.current?.();
+      const { stop } = speakDooogs(dialogHtml, locale, {
+        onStart: () => {
+          if (ambient) ambient.volume = 0.08;
+        },
+        onEnd: () => {
+          if (ambient && !muted) ambient.volume = 0.28;
+        },
+      });
+      voiceStopRef.current = stop;
+    }, 60);
+
     return () => {
-      stop();
+      cancelled = true;
+      window.clearTimeout(timer);
+      voiceStopRef.current?.();
       voiceStopRef.current = null;
       if (ambient && !muted) ambient.volume = 0.28;
     };
@@ -561,10 +556,7 @@ export function LisaApp({
         aria-pressed={!muted}
         onClick={() => {
           unlockDooogsAudio();
-          setMuted((m) => {
-            if (m) lastSpokenRef.current = "";
-            return !m;
-          });
+          setMuted((m) => !m);
         }}
       >
         <span className="c-lisa_sound-icon -on" aria-hidden="true">

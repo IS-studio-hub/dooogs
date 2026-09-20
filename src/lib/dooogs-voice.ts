@@ -24,7 +24,6 @@ export function stripDialogHtml(html: string): string {
     .trim();
 }
 
-/** Make reply text sound more natural when spoken aloud. */
 export function forSpokenVoice(html: string): string {
   let text = stripDialogHtml(html);
   text = text
@@ -61,10 +60,6 @@ function getSharedAudio(): HTMLAudioElement {
   return sharedAudio;
 }
 
-/**
- * Must run inside a user gesture (tap sound, send, mic).
- * Unlocks HTMLAudio for later async TTS replies (critical on iOS).
- */
 export function unlockDooogsAudio(): void {
   if (typeof window === "undefined") return;
   try {
@@ -87,6 +82,19 @@ export function unlockDooogsAudio(): void {
   } catch {
     audioUnlocked = true;
   }
+
+  // Also unlock speechSynthesis (iOS)
+  try {
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+      const warm = new SpeechSynthesisUtterance(" ");
+      warm.volume = 0;
+      window.speechSynthesis.speak(warm);
+      window.speechSynthesis.cancel();
+    }
+  } catch {
+    /* ignore */
+  }
 }
 
 export function isDooogsAudioUnlocked(): boolean {
@@ -97,6 +105,112 @@ type SpeakHandles = {
   stop: () => void;
   done: Promise<void>;
 };
+
+function scoreVoice(v: SpeechSynthesisVoice, locale: Locale): number {
+  const name = `${v.name} ${v.lang}`.toLowerCase();
+  let score = 0;
+  const want = locale === "fr" ? "fr" : "en";
+  if (v.lang.toLowerCase().startsWith(want)) score += 40;
+  if (v.lang.toLowerCase().startsWith(want === "fr" ? "fr-ca" : "en-us"))
+    score += 14;
+  if (/(neural|premium|enhanced|natural|siri|google|microsoft)/.test(name))
+    score += 45;
+  if (v.localService === false) score += 30;
+  if (
+    /(samantha|karen|moira|fiona|tessa|aria|jenny|sonia|ava|zoe|victoria|amelie|amélie|marie)/.test(
+      name
+    )
+  ) {
+    score += 35;
+  }
+  if (/(female|woman)/.test(name)) score += 8;
+  if (/(male|david|daniel|alex|fred)/.test(name) && !/female/.test(name))
+    score -= 25;
+  return score;
+}
+
+function pickBrowserVoice(locale: Locale): SpeechSynthesisVoice | null {
+  if (typeof window === "undefined" || !window.speechSynthesis) return null;
+  const voices = window.speechSynthesis.getVoices();
+  if (!voices.length) return null;
+  return (
+    [...voices].sort((a, b) => scoreVoice(b, locale) - scoreVoice(a, locale))[0] ??
+    null
+  );
+}
+
+function waitForVoices(): Promise<void> {
+  return new Promise((resolve) => {
+    if (typeof window === "undefined" || !window.speechSynthesis) {
+      resolve();
+      return;
+    }
+    if (window.speechSynthesis.getVoices().length) {
+      resolve();
+      return;
+    }
+    const done = () => resolve();
+    window.speechSynthesis.onvoiceschanged = () => {
+      window.speechSynthesis.onvoiceschanged = null;
+      done();
+    };
+    window.setTimeout(done, 800);
+  });
+}
+
+async function speakWithBrowser(
+  text: string,
+  locale: Locale,
+  signal: { stopped: boolean },
+  opts?: { onStart?: () => void; onEnd?: () => void }
+): Promise<boolean> {
+  if (typeof window === "undefined" || !window.speechSynthesis) return false;
+  await waitForVoices();
+  if (signal.stopped) return false;
+
+  const parts =
+    text
+      .match(/[^.!?]+[.!?]+|[^.!?]+$/g)
+      ?.map((s) => s.trim())
+      .filter(Boolean) ?? [text];
+
+  const voice = pickBrowserVoice(locale);
+  opts?.onStart?.();
+
+  const keepAlive = window.setInterval(() => {
+    try {
+      if (window.speechSynthesis.speaking) window.speechSynthesis.resume();
+    } catch {
+      /* ignore */
+    }
+  }, 250);
+
+  try {
+    for (const chunk of parts) {
+      if (signal.stopped) break;
+      await new Promise<void>((resolve) => {
+        const utter = new SpeechSynthesisUtterance(chunk);
+        utter.lang = locale === "fr" ? "fr-FR" : "en-US";
+        utter.rate = 1.02;
+        utter.pitch = 1.06;
+        utter.volume = 1;
+        if (voice) utter.voice = voice;
+        utter.onend = () => resolve();
+        utter.onerror = () => resolve();
+        try {
+          window.speechSynthesis.resume();
+        } catch {
+          /* ignore */
+        }
+        window.speechSynthesis.speak(utter);
+      });
+    }
+    opts?.onEnd?.();
+    return !signal.stopped;
+  } finally {
+    window.clearInterval(keepAlive);
+  }
+}
 
 async function speakWithSharedMp3(
   blob: Blob,
@@ -120,10 +234,10 @@ async function speakWithSharedMp3(
     opts?.onEnd?.();
     return true;
   } catch {
-    opts?.onEnd?.();
     return false;
   } finally {
-    URL.revokeObjectURL(objectUrl);
+    // Revoke after a beat so playback isn't interrupted on some browsers
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1500);
   }
 }
 
@@ -132,23 +246,27 @@ async function fetchTtsBlob(
   locale: Locale,
   signal: AbortSignal
 ): Promise<Blob | null> {
-  const res = await fetch(apiUrl("/api/tts"), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text, locale }),
-    signal,
-  });
-  if (!res.ok) return null;
-  const ct = res.headers.get("content-type") || "";
-  if (ct.includes("json")) return null;
-  const blob = await res.blob();
-  if (blob.size < 500) return null;
-  return blob;
+  try {
+    const res = await fetch(apiUrl("/api/tts"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, locale }),
+      signal,
+    });
+    if (!res.ok) return null;
+    const ct = res.headers.get("content-type") || "";
+    if (ct.includes("json")) return null;
+    const blob = await res.blob();
+    if (blob.size < 500) return null;
+    return blob;
+  } catch {
+    return null;
+  }
 }
 
 /**
- * Speak Dooogs! replies with the shared Worker TTS MP3 only —
- * same voice on every device. No browser speechSynthesis fallback.
+ * Prefer shared Worker TTS MP3 (same voice everywhere).
+ * Fall back to browser speech so voice still works when TTS is down.
  */
 export function speakDooogs(
   html: string,
@@ -162,6 +280,13 @@ export function speakDooogs(
   const text = forSpokenVoice(html);
   const signal = { stopped: false };
   const abort = new AbortController();
+  let ended = false;
+
+  const endOnce = () => {
+    if (ended) return;
+    ended = true;
+    opts?.onEnd?.();
+  };
 
   const stop = () => {
     signal.stopped = true;
@@ -169,35 +294,41 @@ export function speakDooogs(
     try {
       if (sharedAudio) {
         sharedAudio.pause();
-        sharedAudio.removeAttribute("src");
-        sharedAudio.load();
       }
     } catch {
       /* ignore */
     }
-    opts?.onEnd?.();
+    try {
+      window.speechSynthesis?.cancel();
+    } catch {
+      /* ignore */
+    }
+    endOnce();
   };
 
   const done = (async () => {
     if (!text || signal.stopped) return;
 
-    let played = false;
-    for (let attempt = 0; attempt < 2 && !signal.stopped && !played; attempt++) {
-      try {
-        if (attempt > 0) {
-          await new Promise((r) => window.setTimeout(r, 280));
-        }
-        const blob = await fetchTtsBlob(text, locale, abort.signal);
-        if (!blob || signal.stopped) continue;
-        played = await speakWithSharedMp3(blob, signal, opts);
-      } catch {
-        /* retry */
-      }
+    // 1) Shared TTS MP3
+    const blob = await fetchTtsBlob(text, locale, abort.signal);
+    if (blob && !signal.stopped) {
+      const played = await speakWithSharedMp3(blob, signal, {
+        onStart: opts?.onStart,
+        onEnd: endOnce,
+      });
+      if (played || signal.stopped) return;
     }
 
-    if (!played && !signal.stopped) {
+    if (signal.stopped) return;
+
+    // 2) Browser voice fallback (keeps sound working when Worker TTS fails)
+    const ok = await speakWithBrowser(text, locale, signal, {
+      onStart: opts?.onStart,
+      onEnd: endOnce,
+    });
+    if (!ok && !signal.stopped) {
       opts?.onError?.();
-      opts?.onEnd?.();
+      endOnce();
     }
   })();
 
