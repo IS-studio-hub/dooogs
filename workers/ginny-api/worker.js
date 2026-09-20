@@ -12,7 +12,7 @@ const ALLOWED_ORIGINS = [
 
 const WORKERS_AI_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 // Public Ollama tunnel (kept alive via scripts/serve-public-ollama.sh). Same model phones + desktop use.
-const DEFAULT_OLLAMA_BASE_URL = "https://dakota-carry-increasingly-financing.trycloudflare.com";
+const DEFAULT_OLLAMA_BASE_URL = "https://intention-checked-shade-items.trycloudflare.com";
 const DEFAULT_OLLAMA_MODEL = "llama3.1:8b";
 
 
