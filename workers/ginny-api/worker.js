@@ -321,14 +321,92 @@ async function handleChat(req, env) {
 }
 
 async function handleTts(req) {
-  return json(
-    req,
-    {
-      error: "tts_browser_only",
-      hint: "Voice uses the free browser speech engine — no API key needed.",
-    },
-    501
-  );
+  let body;
+  try {
+    body = await req.json();
+  } catch {
+    return json(req, { error: "invalid_json" }, 400);
+  }
+
+  const text = (body.text ?? "").replace(/\s+/g, " ").trim().slice(0, 1800);
+  if (!text) return json(req, { error: "empty_text" }, 400);
+  const locale = body.locale === "fr" ? "fr" : "en";
+
+  try {
+    const audio = await synthesizeSharedTts(text, locale);
+    return new Response(audio, {
+      status: 200,
+      headers: {
+        "Content-Type": "audio/mpeg",
+        "Cache-Control": "private, max-age=3600",
+        ...corsHeaders(req),
+      },
+    });
+  } catch (err) {
+    return json(
+      req,
+      {
+        error: "tts_failed",
+        detail: err instanceof Error ? err.message.slice(0, 200) : "unknown",
+      },
+      502
+    );
+  }
+}
+
+function splitTtsChunks(text, maxLen = 160) {
+  const clean = text.replace(/\s+/g, " ").trim();
+  if (!clean) return [];
+  const sentences = clean.match(/[^.!?]+[.!?]+|[^.!?]+$/g)?.map((s) => s.trim()) ?? [clean];
+  const out = [];
+  let buf = "";
+  for (const s of sentences) {
+    if ((buf + " " + s).trim().length <= maxLen) {
+      buf = (buf + " " + s).trim();
+    } else {
+      if (buf) out.push(buf);
+      if (s.length <= maxLen) buf = s;
+      else {
+        for (let i = 0; i < s.length; i += maxLen) out.push(s.slice(i, i + maxLen));
+        buf = "";
+      }
+    }
+  }
+  if (buf) out.push(buf);
+  return out;
+}
+
+/** Shared free TTS — same audio on mobile and desktop. */
+async function synthesizeSharedTts(text, locale) {
+  const chunks = splitTtsChunks(text);
+  if (!chunks.length) throw new Error("empty_text");
+  const tl = locale === "fr" ? "fr" : "en";
+  const parts = [];
+  for (const chunk of chunks) {
+    const url =
+      `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=${tl}` +
+      `&q=${encodeURIComponent(chunk)}`;
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        Accept: "*/*",
+        Referer: "https://translate.google.com/",
+      },
+    });
+    if (!res.ok) throw new Error(`tts_http_${res.status}`);
+    const buf = new Uint8Array(await res.arrayBuffer());
+    if (!buf.length) throw new Error("tts_empty");
+    parts.push(buf);
+  }
+  const total = parts.reduce((n, p) => n + p.length, 0);
+  const out = new Uint8Array(total);
+  let off = 0;
+  for (const p of parts) {
+    out.set(p, off);
+    off += p.length;
+  }
+  return out.buffer;
 }
 
 export default {
