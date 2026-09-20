@@ -33,13 +33,17 @@ const nextConfig: NextConfig = {
   env: {
     // Always bake the public base path for client asset URLs
     NEXT_PUBLIC_BASE_PATH: basePath,
-    // GitHub Pages has no Node API — chat hits Cloudflare Worker (Workers AI)
+    // GitHub Pages has no Node API — chat/TTS hit Cloudflare Worker
     NEXT_PUBLIC_API_ORIGIN: isGithubPages
       ? process.env.NEXT_PUBLIC_API_ORIGIN ||
         "https://ginny-dooogs-api.encouraging-tablecloth-a0e.workers.dev"
       : process.env.NEXT_PUBLIC_API_ORIGIN || "",
     NEXT_PUBLIC_OLLAMA_BASE_URL:
       process.env.NEXT_PUBLIC_OLLAMA_BASE_URL || "http://127.0.0.1:11434",
+    // Public tunnel so phones/tablets hit the same Ollama as desktop
+    NEXT_PUBLIC_OLLAMA_PUBLIC_URL:
+      process.env.NEXT_PUBLIC_OLLAMA_PUBLIC_URL ||
+      "https://counting-thermal-expense-stock.trycloudflare.com",
     NEXT_PUBLIC_OLLAMA_CHAT_MODEL:
       process.env.NEXT_PUBLIC_OLLAMA_CHAT_MODEL || "llama3.1:8b",
   },

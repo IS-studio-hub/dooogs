@@ -11,6 +11,10 @@ const ALLOWED_ORIGINS = [
 ];
 
 const WORKERS_AI_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
+// Public Ollama tunnel (kept alive via scripts/serve-public-ollama.sh). Same model phones + desktop use.
+const DEFAULT_OLLAMA_BASE_URL = "https://counting-thermal-expense-stock.trycloudflare.com";
+const DEFAULT_OLLAMA_MODEL = "llama3.1:8b";
+
 
 function corsHeaders(req) {
   const origin = req.headers.get("Origin") || "";
@@ -220,10 +224,12 @@ function defaultSuggestions(locale) {
 }
 
 async function chatViaOllama(cleaned, locale, env) {
-  const base = (env.OLLAMA_BASE_URL || "").trim().replace(/\/+$/, "");
+  const base = (env.OLLAMA_BASE_URL || DEFAULT_OLLAMA_BASE_URL || "")
+    .trim()
+    .replace(/\/+$/, "");
   if (!base) return null;
 
-  const model = (env.OLLAMA_CHAT_MODEL || "llama3.1:8b").trim();
+  const model = (env.OLLAMA_CHAT_MODEL || DEFAULT_OLLAMA_MODEL || "llama3.1:8b").trim();
   const system = `${dogExpertSystemPrompt(locale)}\n\n${suggestionSystemExtra(locale)}`;
   const upstream = await fetch(`${base}/v1/chat/completions`, {
     method: "POST",
@@ -422,10 +428,9 @@ export default {
       return json(req, {
         ok: true,
         service: "dooogs-api",
-        chat: env.OLLAMA_BASE_URL ? "ollama" : "workers-ai",
-        model: env.OLLAMA_BASE_URL
-          ? env.OLLAMA_CHAT_MODEL || "llama3.1:8b"
-          : WORKERS_AI_MODEL,
+        chat: "ollama",
+        model: env.OLLAMA_CHAT_MODEL || DEFAULT_OLLAMA_MODEL,
+        ollama: env.OLLAMA_BASE_URL || DEFAULT_OLLAMA_BASE_URL,
       });
     }
 

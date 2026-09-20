@@ -1,6 +1,8 @@
 /**
- * Prefer free local Ollama from the browser when the visitor has it running.
- * Requires Ollama CORS: OLLAMA_ORIGINS="*" (or your site origin).
+ * Free Ollama chat from the browser.
+ * - Localhost: talks to http://127.0.0.1:11434
+ * - GitHub Pages / phones: talks to NEXT_PUBLIC_OLLAMA_PUBLIC_URL (Cloudflare Tunnel)
+ *   so every device shares the same model as desktop.
  */
 import {
   dogExpertSystemPrompt,
@@ -8,7 +10,7 @@ import {
   suggestionSystemExtra,
 } from "@/lib/dog-expert";
 
-const DEFAULT_BASE = "http://127.0.0.1:11434";
+const LOCAL_BASE = "http://127.0.0.1:11434";
 const DEFAULT_MODEL = "llama3.1:8b";
 
 type Msg = { role: "user" | "assistant"; content: string };
@@ -19,15 +21,30 @@ export type BrowserOllamaResult = {
   source: string;
 } | null;
 
+function ollamaBaseUrl(): string | null {
+  if (typeof window === "undefined") return null;
+  const publicUrl = (process.env.NEXT_PUBLIC_OLLAMA_PUBLIC_URL || "").replace(
+    /\/+$/,
+    ""
+  );
+  const host = window.location.hostname;
+  if (host === "localhost" || host === "127.0.0.1") {
+    return (process.env.NEXT_PUBLIC_OLLAMA_BASE_URL || LOCAL_BASE).replace(
+      /\/+$/,
+      ""
+    );
+  }
+  // Phones + GitHub Pages: use the public tunnel to the same Ollama
+  return publicUrl || null;
+}
+
 export async function tryBrowserOllama(
   messages: Msg[],
   locale: "en" | "fr"
 ): Promise<BrowserOllamaResult> {
-  if (typeof window === "undefined") return null;
+  const base = ollamaBaseUrl();
+  if (!base) return null;
 
-  const base = (
-    process.env.NEXT_PUBLIC_OLLAMA_BASE_URL || DEFAULT_BASE
-  ).replace(/\/+$/, "");
   const model = process.env.NEXT_PUBLIC_OLLAMA_CHAT_MODEL || DEFAULT_MODEL;
   const system = `${dogExpertSystemPrompt(locale)}\n\n${suggestionSystemExtra(locale)}`;
 
