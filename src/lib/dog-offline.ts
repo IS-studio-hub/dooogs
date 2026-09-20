@@ -191,11 +191,46 @@ export function offlineDogReply(
   }
 
   if (isOffTopic(userText)) {
-    return {
-      reply:
+    const t = userText.toLowerCase();
+    let reply: string;
+    if (/cook|recipe|food|dinner|cuisine|dîner|recette|pizza|coffee|café/i.test(t)) {
+      reply =
         locale === "fr"
-          ? `Je peux en parler un instant — et avec plaisir. Mon vrai terrain de jeu, ce sont les chiens: races, histoires, caractère, éducation, soins.<br><br>Dis-moi ce qui t’intéresse le plus (une race, un comportement, l’alimentation…) et on creuse ensemble.`
-          : `Happy to chat about that for a moment. My deepest expertise is dogs — breeds worldwide, history, personality, training, and care.<br><br>Tell me what you’d love to explore (a breed, a behavior, feeding…) and we’ll dig in.`,
+          ? `Ça sent bon d’ici! Pendant que tu mijotes, petite pensée canidé: chocolat, xylitol, raisin et oignon restent hors gamelle — même une bouchée “sympa” peut mal finir.<br><br>Tu veux une liste de friandises sûres, ou on parle d’une race gourmande type Labrador?`
+          : `That smells amazing from here! While you’re in the kitchen, a quick paw-note: chocolate, xylitol, grapes, and onions stay out of the bowl — even a “tiny taste” can go wrong.<br><br>Want a safe-treat list, or shall we geek out on a food-motivated breed like the Labrador?`;
+    } else if (/travel|flight|avion|trip|voyage|hotel|vacance/i.test(t)) {
+      reply =
+        locale === "fr"
+          ? `Les valises, ça donne des papillons — et aux chiens aussi. Certaines races voyagent zen en voiture; d’autres stressent en cabine.<br><br>Tu pars avec un compagnon à quatre pattes, ou tu veux des races plutôt “globetrotteuses”?`
+          : `Suitcases give butterflies — dogs get them too. Some breeds are road-trip zen; others melt down in a cabin.<br><br>Traveling with a pup, or curious which breeds handle adventures best?`;
+    } else if (/movie|film|netflix|series|série|cinema|cinéma/i.test(t)) {
+      reply =
+        locale === "fr"
+          ? `Bon film en vue! Ça me rappelle Lassie, Hachi, ou le Border Collie trop intelligent des pubs…<br><br>Tu préfères les races “stars de cinéma”, ou une vraie fiche race pour ce soir?`
+          : `Movie night vibes! Makes me think of Lassie, Hachi, or those too-smart Border Collies in commercials…<br><br>Want famous film-dog breeds, or a real breed deep-dive for tonight?`;
+    } else if (/sport|gym|run|foot|soccer|basket|workout|sportif/i.test(t)) {
+      reply =
+        locale === "fr"
+          ? `Cette énergie mériterait un partenaire de canicross ou d’agility! Les Border Collies et les Malinois vivent pour ça — d’autres préfèrent la sieste après deux jets de balle.<br><br>Tu cherches une race sportive, ou des idées d’exercices pour ton chien?`
+          : `That energy deserves a canicross or agility buddy! Border Collies and Malinois live for it — others are done after two tennis balls.<br><br>Looking for a sporty breed, or workout ideas for a dog you already love?`;
+    } else if (/weather|rain|snow|hot|cold|météo|pluie|neige|chaud|froid/i.test(t)) {
+      reply =
+        locale === "fr"
+          ? `Selon le ciel, certaines races rayonnent — Huskies dans le froid, lévriers qui fondent dès qu’il fait trop chaud.<br><br>Tu adaptes les promenades à la météo, ou tu veux des races faites pour ton climat?`
+          : `Weather picks favorites — Huskies glow in the cold; sighthounds wilt when it spikes hot.<br><br>Tweaking walks for the forecast, or hunting breeds built for your climate?`;
+    } else if (/work|job|office|bureau|meeting|réunion|career|travail/i.test(t)) {
+      reply =
+        locale === "fr"
+          ? `Journée chargée… les chiens d’assistance et de détection bossent aussi, avec un focus impressionnant.<br><br>Tu veux des races “bureau-friendly”, ou des histoires de chiens au travail?`
+          : `Busy day… service and detection dogs clock in too, with wild focus.<br><br>Curious about office-friendly breeds, or dogs with real jobs?`;
+    } else {
+      reply =
+        locale === "fr"
+          ? `Hmm, ça ouvre plein d’images — et ça me fait penser à quel chien collerait à cette vibe.<br><br>Si c’était une race: plutôt curieuse et sportive, câline d’appart, ou garde du cœur à la maison? Dis-moi et on creuse.`
+          : `Hmm, that paints a picture — and it makes me wonder which dog would match that vibe.<br><br>If it were a breed: curious athlete, apartment cuddler, or loyal heart-of-the-home? Tell me and we’ll dig in.`;
+    }
+    return {
+      reply,
       suggestions:
         locale === "fr"
           ? ["Races populaires", "Choisir une race", "Éducation chiot"]
