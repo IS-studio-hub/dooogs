@@ -9,7 +9,8 @@ const copy = {
   en: {
     menu: "Menu",
     close: "Close",
-    talk: "Chat with Ginny",
+    talk: "Try Ginny guide",
+    download: "Download OS",
     shop: "Shop",
     lang: "Français",
     langHref: "/fr",
@@ -17,7 +18,8 @@ const copy = {
   fr: {
     menu: "Menu",
     close: "Fermer",
-    talk: "Parler à Ginny",
+    talk: "Guide Ginny",
+    download: "Télécharger l’OS",
     shop: "Boutique",
     lang: "English",
     langHref: "/en",
@@ -48,9 +50,13 @@ export function Header({ locale }: { locale: Locale }) {
             </span>
           </a>
 
-          <Link href={`/${locale}`} className="c-header_cta">
-            {t.talk}
-          </Link>
+          <a
+            href="https://github.com/IS-studio-hub/dooogs/releases/latest/download/dooogs-os-mac.zip"
+            className="c-header_cta"
+            download
+          >
+            {t.download}
+          </a>
 
           <button
             type="button"
@@ -72,8 +78,18 @@ export function Header({ locale }: { locale: Locale }) {
           <div className="c-menu_inner">
             <ul className="c-menu_nav">
               <li className="c-menu_nav_item">
+                <a
+                  className="c-menu_nav_link"
+                  href="https://github.com/IS-studio-hub/dooogs/releases/latest/download/dooogs-os-mac.zip"
+                  download
+                  onClick={() => setOpen(false)}
+                >
+                  {t.download}
+                </a>
+              </li>
+              <li className="c-menu_nav_item">
                 <Link
-                  href={`/${locale}`}
+                  href={`/${locale}/guide`}
                   className="c-menu_nav_link"
                   onClick={() => setOpen(false)}
                 >

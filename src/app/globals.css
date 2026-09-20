@@ -1205,3 +1205,96 @@ html:not(.has-menu-opened) .c-menu {
   font-size: clamp(3rem, 10vw, 6rem);
   margin-bottom: 1rem;
 }
+
+/* ——— Product landing (dooogs OS) ——— */
+.c-product {
+  min-height: 100svh;
+  padding: calc(var(--header-height) + 2.5rem) var(--grid-margin) 4rem;
+  background:
+    radial-gradient(120% 80% at 50% -10%, #2a2a2a 0%, transparent 55%),
+    linear-gradient(180deg, #111 0%, #1a1a1a 40%, #c9c9c9 100%);
+  color: #f4f4f4;
+}
+
+.c-product_hero {
+  max-width: 42rem;
+  margin: 0 auto 3rem;
+}
+
+.c-product_brand {
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
+  opacity: 0.75;
+  margin: 0 0 1rem;
+}
+
+.c-product_title {
+  font-family: var(--font-display-family), Georgia, serif;
+  font-size: clamp(2.6rem, 8vw, 4.8rem);
+  line-height: 0.95;
+  letter-spacing: -0.03em;
+  margin: 0 0 1.1rem;
+  font-weight: 400;
+}
+
+.c-product_lede {
+  font-size: 1.1rem;
+  line-height: 1.5;
+  max-width: 34rem;
+  color: rgba(255, 255, 255, 0.82);
+  margin: 0 0 1.75rem;
+}
+
+.c-product_cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  align-items: center;
+}
+
+.c-product_download {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.85rem 1.4rem;
+  border-radius: 999px;
+  background: #f4f4f4;
+  color: #111;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.c-product_link {
+  color: rgba(255, 255, 255, 0.9);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.c-product_features {
+  max-width: 42rem;
+  margin: 0 auto;
+  padding: 1.75rem 0 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.18);
+  color: #111;
+}
+
+.c-product_features h2 {
+  font-size: 1.15rem;
+  margin: 0 0 1rem;
+}
+
+.c-product_features ul {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 0.55rem;
+  line-height: 1.4;
+}
+
+.c-product_note {
+  margin: 1.5rem 0 0;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  color: rgba(0, 0, 0, 0.72);
+}

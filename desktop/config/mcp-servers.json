@@ -1,0 +1,74 @@
+{
+  "mcpServers": {
+    "terminal": {
+      "kind": "builtin",
+      "description": "Run shell commands on this Mac (always asks permission)",
+      "alwaysAsk": true
+    },
+    "github": {
+      "kind": "builtin",
+      "description": "GitHub via local gh CLI",
+      "alwaysAsk": true
+    },
+    "chrome": {
+      "kind": "builtin",
+      "description": "Open URLs in Chrome / default browser",
+      "alwaysAsk": false
+    },
+    "blender": {
+      "kind": "stdio",
+      "command": "uvx",
+      "args": ["mcp-for-blender"],
+      "description": "Live Blender MCP (requires Blender + addon)",
+      "alwaysAsk": true
+    },
+    "unreal": {
+      "kind": "http",
+      "url": "http://127.0.0.1:8000/mcp",
+      "description": "Unreal Editor MCP (editor must be open)",
+      "alwaysAsk": true
+    },
+    "figma": {
+      "kind": "pending",
+      "description": "Figma Dev Mode MCP — connect with a Figma access token",
+      "envHint": ["FIGMA_ACCESS_TOKEN"],
+      "alwaysAsk": true
+    },
+    "adobe-photoshop": {
+      "kind": "pending",
+      "description": "Photoshop UXP / scripting bridge (install Adobe + connector)",
+      "alwaysAsk": true
+    },
+    "adobe-illustrator": {
+      "kind": "pending",
+      "description": "Illustrator scripting bridge (install Adobe + connector)",
+      "alwaysAsk": true
+    },
+    "adobe-aftereffects": {
+      "kind": "pending",
+      "description": "After Effects scripting bridge (install Adobe + connector)",
+      "alwaysAsk": true
+    },
+    "spotify": {
+      "kind": "pending",
+      "description": "Spotify Web API MCP — needs Spotify developer credentials",
+      "envHint": ["SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET"],
+      "alwaysAsk": true
+    },
+    "whatsapp": {
+      "kind": "pending",
+      "description": "WhatsApp Web bridge — requires QR login (optional, high trust)",
+      "alwaysAsk": true
+    },
+    "cursor-ai": {
+      "kind": "pending",
+      "description": "Cursor Agent bridge — uses Cursor CLI / local agent when available",
+      "alwaysAsk": true
+    },
+    "apple-ios": {
+      "kind": "pending",
+      "description": "Apple Shortcuts / simctl / Xcode tools on this Mac",
+      "alwaysAsk": true
+    }
+  }
+}
