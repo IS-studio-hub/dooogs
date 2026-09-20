@@ -10,12 +10,13 @@ type BrowserRec = {
   lang: string;
   interimResults: boolean;
   continuous: boolean;
+  maxAlternatives: number;
   onresult: ((ev: {
     results: {
       [i: number]: { [j: number]: { transcript: string }; isFinal: boolean };
     };
   }) => void) | null;
-  onerror: (() => void) | null;
+  onerror: ((ev: { error?: string }) => void) | null;
   onend: (() => void) | null;
   start: () => void;
   stop: () => void;
@@ -44,6 +45,23 @@ function getSpeechRecognitionCtor(): (new () => BrowserRec) | null {
   return w.SpeechRecognition || w.webkitSpeechRecognition || null;
 }
 
+let sttAvailableCache: boolean | null = null;
+
+async function probeSttAvailable(): Promise<boolean> {
+  if (sttAvailableCache !== null) return sttAvailableCache;
+  try {
+    // Tiny empty probe — 404/405/502 means Whisper route isn’t live
+    const res = await fetch(apiUrl("/api/stt"), {
+      method: "OPTIONS",
+    });
+    // OPTIONS should 204 if worker is updated; older workers may 404
+    sttAvailableCache = res.ok || res.status === 204;
+  } catch {
+    sttAvailableCache = false;
+  }
+  return sttAvailableCache;
+}
+
 export function DooogsAskBar({
   locale,
   disabled,
@@ -64,13 +82,19 @@ export function DooogsAskBar({
   const [value, setValue] = useState("");
   const [transcribing, setTranscribing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const valueRef = useRef("");
   const mediaRef = useRef<MediaRecorder | null>(null);
   const browserRecRef = useRef<BrowserRec | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   const maxTimerRef = useRef<number | null>(null);
+  const submittedRef = useRef(false);
   const hasText = value.trim().length > 0;
   const busy = Boolean(disabled || transcribing);
+
+  useEffect(() => {
+    valueRef.current = value;
+  }, [value]);
 
   useEffect(() => {
     return () => {
@@ -115,7 +139,11 @@ export function DooogsAskBar({
       method: "POST",
       body: form,
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      sttAvailableCache = false;
+      return null;
+    }
+    sttAvailableCache = true;
     const data = (await res.json()) as { text?: string };
     return data.text?.trim() || null;
   }
@@ -158,28 +186,22 @@ export function DooogsAskBar({
     }
   }
 
-  function startWebSpeechFallback() {
+  function startWebSpeech() {
     const Ctor = getSpeechRecognitionCtor();
-    if (!Ctor) {
-      notice(
-        locale === "fr"
-          ? "Micro non supporté — tape ta question."
-          : "Microphone not supported — please type your question."
-      );
-      return;
-    }
+    if (!Ctor) return false;
+
+    submittedRef.current = false;
     const rec = new Ctor();
     rec.lang = locale === "fr" ? "fr-FR" : "en-US";
     rec.interimResults = true;
     rec.continuous = false;
+    rec.maxAlternatives = 1;
+
     rec.onresult = (ev) => {
       let finalText = "";
       let interim = "";
-      for (
-        let i = 0;
-        i < (ev.results as unknown as { length: number }).length;
-        i++
-      ) {
+      const len = (ev.results as unknown as { length: number }).length;
+      for (let i = 0; i < len; i++) {
         const row = ev.results[i];
         const piece = row?.[0]?.transcript ?? "";
         if (row?.isFinal) finalText += piece;
@@ -187,116 +209,174 @@ export function DooogsAskBar({
       }
       const next = (finalText || interim).trim();
       if (next) setValue(next);
-      if (finalText.trim()) {
+      if (finalText.trim() && !submittedRef.current) {
+        submittedRef.current = true;
         browserRecRef.current = null;
         onListeningChange(false);
-        onSubmit(finalText.trim(), { fromMic: true });
+        const text = finalText.trim();
+        setValue(text);
+        onSubmit(text, { fromMic: true });
         setValue("");
       }
     };
-    rec.onerror = () => {
+
+    rec.onerror = (ev) => {
       browserRecRef.current = null;
       onListeningChange(false);
-    };
-    rec.onend = () => {
-      browserRecRef.current = null;
-      onListeningChange(false);
-    };
-    browserRecRef.current = rec;
-    onListeningChange(true);
-    try {
-      rec.start();
-    } catch {
-      browserRecRef.current = null;
-      onListeningChange(false);
-      notice(
-        locale === "fr"
-          ? "Micro indisponible — tape ta question."
-          : "Microphone unavailable — please type your question."
-      );
-    }
-  }
-
-  async function startListening() {
-    unlockDooogsAudio();
-
-    if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
-      startWebSpeechFallback();
-      return;
-    }
-    if (typeof MediaRecorder === "undefined") {
-      startWebSpeechFallback();
-      return;
-    }
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
-      });
-      streamRef.current = stream;
-      const mime = pickRecorderMime();
-      const recorder = mime
-        ? new MediaRecorder(stream, { mimeType: mime })
-        : new MediaRecorder(stream);
-      chunksRef.current = [];
-      recorder.ondataavailable = (ev) => {
-        if (ev.data.size > 0) chunksRef.current.push(ev.data);
-      };
-      recorder.onstop = () => {
-        const type = recorder.mimeType || mime || "audio/webm";
-        const blob = new Blob(chunksRef.current, { type });
-        void finishRecording(blob);
-      };
-      recorder.onerror = () => {
-        teardownRecorder();
-        onListeningChange(false);
-        notice(
-          locale === "fr"
-            ? "Erreur micro — tape ta question."
-            : "Mic error — please type your question."
-        );
-      };
-      mediaRef.current = recorder;
-      recorder.start(250);
-      onListeningChange(true);
-      maxTimerRef.current = window.setTimeout(() => {
-        if (mediaRef.current?.state === "recording") {
-          try {
-            mediaRef.current.stop();
-          } catch {
-            /* ignore */
-          }
-        }
-      }, 12_000);
-    } catch (err) {
-      const name = err instanceof DOMException ? err.name : "";
-      if (name === "NotAllowedError" || name === "PermissionDeniedError") {
+      const err = ev?.error || "";
+      if (err === "not-allowed" || err === "service-not-allowed") {
         notice(
           locale === "fr"
             ? "Autorise le micro dans le navigateur, ou tape ta question."
             : "Allow microphone access, or type your question."
         );
-        teardownRecorder();
-        onListeningChange(false);
-        return;
+      } else if (err === "no-speech") {
+        notice(
+          locale === "fr"
+            ? "Je n’ai rien entendu — réessaie."
+            : "I didn’t hear anything — try again."
+        );
+      } else if (err === "network") {
+        notice(
+          locale === "fr"
+            ? "Réseau micro indisponible — tape ta question."
+            : "Mic network error — please type your question."
+        );
+      } else if (err && err !== "aborted") {
+        notice(
+          locale === "fr"
+            ? "Micro en erreur — tape ta question."
+            : "Mic error — please type your question."
+        );
       }
-      startWebSpeechFallback();
+    };
+
+    rec.onend = () => {
+      browserRecRef.current = null;
+      onListeningChange(false);
+      const draft = valueRef.current.trim();
+      if (!submittedRef.current && draft) {
+        submittedRef.current = true;
+        onSubmit(draft, { fromMic: true });
+        setValue("");
+      }
+    };
+
+    browserRecRef.current = rec;
+    onListeningChange(true);
+    try {
+      rec.start();
+      return true;
+    } catch {
+      browserRecRef.current = null;
+      onListeningChange(false);
+      return false;
     }
+  }
+
+  async function startMediaRecorder() {
+    if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+      return false;
+    }
+    if (typeof MediaRecorder === "undefined") return false;
+
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      },
+    });
+    streamRef.current = stream;
+    const mime = pickRecorderMime();
+    const recorder = mime
+      ? new MediaRecorder(stream, { mimeType: mime })
+      : new MediaRecorder(stream);
+    chunksRef.current = [];
+    recorder.ondataavailable = (ev) => {
+      if (ev.data.size > 0) chunksRef.current.push(ev.data);
+    };
+    recorder.onstop = () => {
+      const type = recorder.mimeType || mime || "audio/webm";
+      const blob = new Blob(chunksRef.current, { type });
+      void finishRecording(blob);
+    };
+    recorder.onerror = () => {
+      teardownRecorder();
+      onListeningChange(false);
+      notice(
+        locale === "fr"
+          ? "Erreur micro — tape ta question."
+          : "Mic error — please type your question."
+      );
+    };
+    mediaRef.current = recorder;
+    recorder.start(250);
+    onListeningChange(true);
+    maxTimerRef.current = window.setTimeout(() => {
+      if (mediaRef.current?.state === "recording") {
+        try {
+          mediaRef.current.stop();
+        } catch {
+          /* ignore */
+        }
+      }
+    }, 12_000);
+    return true;
+  }
+
+  async function startListening() {
+    unlockDooogsAudio();
+
+    // 1) Prefer browser speech recognition when available (works without Worker STT)
+    if (getSpeechRecognitionCtor()) {
+      if (startWebSpeech()) return;
+    }
+
+    // 2) MediaRecorder + Whisper when STT is live (needed on iOS Safari)
+    const sttOk = await probeSttAvailable();
+    if (sttOk) {
+      try {
+        if (await startMediaRecorder()) return;
+      } catch (err) {
+        const name = err instanceof DOMException ? err.name : "";
+        if (name === "NotAllowedError" || name === "PermissionDeniedError") {
+          notice(
+            locale === "fr"
+              ? "Autorise le micro dans le navigateur, ou tape ta question."
+              : "Allow microphone access, or type your question."
+          );
+          return;
+        }
+      }
+    }
+
+    notice(
+      locale === "fr"
+        ? "Micro non supporté ici — tape ta question."
+        : "Microphone not supported here — please type your question."
+    );
   }
 
   function stopListening() {
     if (browserRecRef.current) {
+      const draft = valueRef.current.trim();
       try {
         browserRecRef.current.stop();
       } catch {
-        /* ignore */
+        try {
+          browserRecRef.current.abort();
+        } catch {
+          /* ignore */
+        }
       }
       browserRecRef.current = null;
       onListeningChange(false);
+      if (draft && !submittedRef.current) {
+        submittedRef.current = true;
+        onSubmit(draft, { fromMic: true });
+        setValue("");
+      }
       return;
     }
     if (maxTimerRef.current) {
