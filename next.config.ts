@@ -43,7 +43,7 @@ const nextConfig: NextConfig = {
     // Public tunnel so phones/tablets hit the same Ollama as desktop
     NEXT_PUBLIC_OLLAMA_PUBLIC_URL:
       process.env.NEXT_PUBLIC_OLLAMA_PUBLIC_URL ||
-      "https://counting-thermal-expense-stock.trycloudflare.com",
+      "https://dakota-carry-increasingly-financing.trycloudflare.com",
     NEXT_PUBLIC_OLLAMA_CHAT_MODEL:
       process.env.NEXT_PUBLIC_OLLAMA_CHAT_MODEL || "llama3.1:8b",
   },
