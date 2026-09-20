@@ -15,6 +15,7 @@ import { apiUrl } from "@/lib/api-url";
 import { withBase } from "@/lib/base-path";
 import { offlineDogReply } from "@/lib/dog-offline";
 import { tryBrowserOllama } from "@/lib/browser-ollama";
+import { isSafeHttpUrl, sanitizeDialogHtml, stripHtml } from "@/lib/safe-html";
 import { DooogsAskBar } from "./DooogsAskBar";
 import { LisaDialog } from "./LisaDialog";
 import { LisaMedia } from "./LisaMedia";
@@ -119,7 +120,7 @@ export function LisaApp({
         ]);
       }
       setStepId("chat");
-      setDialogHtml(html);
+      setDialogHtml(sanitizeDialogHtml(html));
       setTypingDone(false);
       setExpanded(false);
       setDocumentTitle("Dooogs!");
@@ -236,7 +237,7 @@ export function LisaApp({
       }
       setStepId(nextId);
       const html = next.dialog?.list ? pickDialog(next.dialog.list) : "";
-      setDialogHtml(html);
+      setDialogHtml(sanitizeDialogHtml(html));
       setTypingDone(false);
       setExpanded(false);
       if (nextId === "chat") setDocumentTitle("Dooogs!");
@@ -248,7 +249,11 @@ export function LisaApp({
   useEffect(() => {
     const intro = content.intro;
     if (!intro) return;
-    setDialogHtml(intro.dialog?.list ? pickDialog(intro.dialog.list) : "");
+    setDialogHtml(
+      sanitizeDialogHtml(
+        intro.dialog?.list ? pickDialog(intro.dialog.list) : ""
+      )
+    );
   }, [content]);
 
   useEffect(() => {
@@ -315,7 +320,7 @@ export function LisaApp({
       window.setTimeout(() => setToast(null), 2200);
       return;
     }
-    if (choice.href) {
+    if (choice.href && isSafeHttpUrl(choice.href)) {
       window.open(choice.href, "_blank", "noopener,noreferrer");
       return;
     }
@@ -327,9 +332,9 @@ export function LisaApp({
       return;
     }
 
-    const ask =
+      const ask =
       (choice.modelUpdate?.key === "ask" && choice.modelUpdate.value) ||
-      (!choice.target ? choice.label.replace(/<[^>]+>/g, "") : null);
+      (!choice.target ? stripHtml(choice.label) : null);
 
     if (ask) {
       void askDog(ask);
@@ -339,7 +344,7 @@ export function LisaApp({
     const patch: LisaModel = {};
     if (choice.modelUpdate) {
       patch[choice.modelUpdate.key] =
-        choice.modelUpdate.value ?? choice.label.replace(/<[^>]+>/g, "");
+        choice.modelUpdate.value ?? stripHtml(choice.label);
     }
     if (choice.target) goTo(choice.target, { modelPatch: patch });
     else if (Object.keys(patch).length) setModel((m) => ({ ...m, ...patch }));
@@ -462,13 +467,15 @@ export function LisaApp({
               <button
                 type="button"
                 className="c-lisa-step_previous"
-                aria-label={history[history.length - 1]?.dialogHtml.replace(/<[^>]+>/g, "")}
+                aria-label={stripHtml(history[history.length - 1]?.dialogHtml ?? "")}
                 onClick={(e) => {
                   e.stopPropagation();
                   handleBack();
                 }}
                 dangerouslySetInnerHTML={{
-                  __html: history[history.length - 1]?.dialogHtml ?? "",
+                  __html: sanitizeDialogHtml(
+                    history[history.length - 1]?.dialogHtml ?? ""
+                  ),
                 }}
               />
             ) : null}
@@ -482,7 +489,7 @@ export function LisaApp({
 
             <div className="c-lisa-step_content" onClick={(e) => e.stopPropagation()}>
               {choices.length > 0 && !thinking ? (
-                <div className="c-lisa-step_choices">
+                <div className="c-lisa-step_choices" role="group" aria-label={locale === "fr" ? "Suggestions" : "Suggestions"}>
                   {choices.map((choice) => (
                     <button
                       key={choice.label}
@@ -492,8 +499,9 @@ export function LisaApp({
                         setSheetOpen(true);
                         handleChoice(choice);
                       }}
-                      dangerouslySetInnerHTML={{ __html: choice.label }}
-                    />
+                    >
+                      {stripHtml(choice.label) || choice.label}
+                    </button>
                   ))}
                 </div>
               ) : null}
@@ -534,6 +542,7 @@ export function LisaApp({
         type="button"
         className={clsx("c-lisa_sound", muted && "-muted")}
         aria-label={locale === "fr" ? "Son / voix de Dooogs!" : "Sound / Dooogs! voice"}
+        aria-pressed={!muted}
         onClick={() => setMuted((m) => !m)}
       >
         <span className="c-lisa_sound-icon -on" aria-hidden="true">
@@ -550,7 +559,11 @@ export function LisaApp({
 
       <div className="c-lisa_progress" aria-hidden="true" />
 
-      {toast ? <div className="c-lisa_toast">{toast}</div> : null}
+      {toast ? (
+        <div className="c-lisa_toast" role="status" aria-live="polite">
+          {toast}
+        </div>
+      ) : null}
     </div>
   );
 }

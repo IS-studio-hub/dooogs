@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import type { Locale } from "@/lib/lisa-types";
 import { DooogsLogo } from "@/components/layout/DooogsLogo";
 
@@ -18,22 +17,16 @@ export function Header({ locale }: { locale: Locale }) {
 
   return (
     <>
-      <div className="c-header_bg" />
-      <header>
+      <div className="c-header_bg" aria-hidden="true" />
+      <header role="banner">
         <div className="c-header">
-          <a
-            href={`/${locale}`}
-            className="c-header_logo"
-            aria-label="dooogs"
-          >
+          <div className="c-header_logo">
             <span className="c-header_logo_inner">
-              <DooogsLogo className="c-header_logo_img" />
+              <DooogsLogo className="c-header_logo_img" title="Dooogs!" />
             </span>
-          </a>
+          </div>
 
-          <Link href={`/${locale}`} className="c-header_cta">
-            {t.talk}
-          </Link>
+          <p className="c-header_cta">{t.talk}</p>
         </div>
       </header>
     </>

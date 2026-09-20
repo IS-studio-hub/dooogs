@@ -52,8 +52,15 @@ export function CookieConsent({ locale }: { locale: Locale }) {
   if (!visible) return null;
 
   return (
-    <aside className="c-cookie" role="dialog" aria-label={t.title}>
-      <div className="c-cookie_title">{t.title}</div>
+    <aside
+      className="c-cookie"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="cookie-title"
+    >
+      <div className="c-cookie_title" id="cookie-title">
+        {t.title}
+      </div>
       <p>
         {t.description}{" "}
         <Link href={`/${locale}/privacy-policy`} className="c-cookie_link">

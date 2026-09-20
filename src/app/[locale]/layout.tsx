@@ -21,13 +21,19 @@ export default async function LocaleLayout({
   const { locale: raw } = await params;
   if (!locales.includes(raw as Locale)) notFound();
   const locale = raw as Locale;
+  const skipLabel = locale === "fr" ? "Aller au contenu" : "Skip to content";
 
   return (
     <>
+      <a className="c-skip-link" href="#main-content">
+        {skipLabel}
+      </a>
       <HtmlLang locale={locale} />
       <Preloader />
       <Header locale={locale} />
-      <main>{children}</main>
+      <main id="main-content" tabIndex={-1}>
+        {children}
+      </main>
       <CookieConsent locale={locale} />
     </>
   );

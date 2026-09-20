@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { sanitizeDialogHtml } from "@/lib/safe-html";
 
 function tokenize(html: string): string[] {
   const parts = html.split(/(<[^>]+>|\s+)/).filter((p) => p.length > 0);
@@ -16,7 +17,8 @@ export function LisaDialog({
   showCursor: boolean;
   onComplete?: () => void;
 }) {
-  const tokens = useMemo(() => tokenize(html), [html]);
+  const safeHtml = useMemo(() => sanitizeDialogHtml(html), [html]);
+  const tokens = useMemo(() => tokenize(safeHtml), [safeHtml]);
   const [visibleCount, setVisibleCount] = useState(0);
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
@@ -40,7 +42,9 @@ export function LisaDialog({
   return (
     <div
       className={`c-lisa-step_dialog${showCursor && visibleCount < tokens.length ? " -show-cursor" : ""}`}
+      role="status"
       aria-live="polite"
+      aria-atomic="false"
     >
       <span dangerouslySetInnerHTML={{ __html: shown || "&nbsp;" }} />
     </div>
