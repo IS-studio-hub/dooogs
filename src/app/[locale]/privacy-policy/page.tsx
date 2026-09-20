@@ -12,7 +12,7 @@ const copy = {
       "Essential cookies support language preference and preloader timing. Analytics cookies are optional and not loaded unless accepted.",
       "Form submissions are handled by this app’s local API for demo purposes and are not sent to third-party marketing systems unless you configure them to.",
     ],
-    back: "Back to Ginny",
+    back: "Back to Dooogs!",
   },
   fr: {
     title: "Politique de confidentialité",
@@ -21,7 +21,7 @@ const copy = {
       "Les cookies essentiels gèrent la langue et le préchargeur. Les cookies analytiques sont optionnels.",
       "Les envois de formulaires passent par l’API locale de cette démo et ne sont pas transmis à des systèmes marketing tiers sauf configuration contraire.",
     ],
-    back: "Retour à Ginny",
+    back: "Retour à Dooogs!",
   },
 } as const;
 

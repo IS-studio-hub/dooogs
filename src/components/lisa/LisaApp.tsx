@@ -10,11 +10,11 @@ import {
   type LisaModel,
   type Locale,
 } from "@/lib/lisa-types";
-import { speakGinny } from "@/lib/ginny-voice";
+import { speakDooogs } from "@/lib/dooogs-voice";
 import { apiUrl } from "@/lib/api-url";
 import { withBase } from "@/lib/base-path";
 import { offlineDogReply } from "@/lib/dog-offline";
-import { GinnyAskBar } from "./GinnyAskBar";
+import { DooogsAskBar } from "./DooogsAskBar";
 import { LisaDialog } from "./LisaDialog";
 import { LisaMedia } from "./LisaMedia";
 
@@ -43,7 +43,7 @@ export function LisaApp({
   const [muted, setMuted] = useState(true);
   const [model, setModel] = useState<LisaModel>({});
   const [toast, setToast] = useState<string | null>(null);
-  const [documentTitle, setDocumentTitle] = useState("Ginny");
+  const [documentTitle, setDocumentTitle] = useState("Dooogs!");
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [aiSuggestions, setAiSuggestions] = useState<string[] | null>(null);
   const [thinking, setThinking] = useState(false);
@@ -121,7 +121,7 @@ export function LisaApp({
       setDialogHtml(html);
       setTypingDone(false);
       setExpanded(false);
-      setDocumentTitle("Ginny");
+      setDocumentTitle("Dooogs!");
     },
     []
   );
@@ -226,8 +226,8 @@ export function LisaApp({
       setDialogHtml(html);
       setTypingDone(false);
       setExpanded(false);
-      if (nextId === "chat") setDocumentTitle("Ginny");
-      else setDocumentTitle("Ginny");
+      if (nextId === "chat") setDocumentTitle("Dooogs!");
+      else setDocumentTitle("Dooogs!");
     },
     [content, dialogHtml, stepId]
   );
@@ -253,14 +253,14 @@ export function LisaApp({
     }
   }, [muted]);
 
-  // Ginny speaks each dialog line when sound is on (skip the brief thinking line if muted stays on — still speak when unmuted)
+  // Dooogs! speaks each dialog line when sound is on (skip the brief thinking line if muted stays on — still speak when unmuted)
   useEffect(() => {
     voiceStopRef.current?.();
     voiceStopRef.current = null;
     if (muted || !dialogHtml || thinking) return;
 
     const ambient = audioRef.current;
-    const { stop } = speakGinny(dialogHtml, locale, {
+    const { stop } = speakDooogs(dialogHtml, locale, {
       onStart: () => {
         if (ambient) ambient.volume = 0.12;
       },
@@ -431,7 +431,7 @@ export function LisaApp({
             onClick={(e) => e.stopPropagation()}
           >
             {showAskBar ? (
-              <GinnyAskBar
+              <DooogsAskBar
                 locale={locale}
                 disabled={thinking || !typingDone}
                 listening={listening}
@@ -520,7 +520,7 @@ export function LisaApp({
       <button
         type="button"
         className={clsx("c-lisa_sound", muted && "-muted")}
-        aria-label={locale === "fr" ? "Son / voix de Ginny" : "Sound / Ginny’s voice"}
+        aria-label={locale === "fr" ? "Son / voix de Dooogs!" : "Sound / Dooogs! voice"}
         onClick={() => setMuted((m) => !m)}
       >
         <span className="c-lisa_sound-icon -on" aria-hidden="true">

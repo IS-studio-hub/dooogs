@@ -16,21 +16,21 @@ const display = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: "Ginny | Dog Types Guide",
+  title: "Dooogs! | Dog Types Guide",
   description:
-    "Meet Ginny — your poodle guide to dog breeds. Explore types, history, and where to see more of each breed.",
-  metadataBase: new URL("https://drinkginny.com"),
+    "Meet Dooogs! — your poodle guide to dog breeds. Explore types, history, and where to see more of each breed.",
+  metadataBase: new URL("https://is-studio-hub.github.io/dooogs"),
   openGraph: {
-    title: "Ginny | Dog Types Guide",
+    title: "Dooogs! | Dog Types Guide",
     description:
-      "Explore dog breeds with Ginny: traits, history, and where to meet each type.",
-    siteName: "Ginny",
+      "Explore dog breeds with Dooogs! — traits, history, and where to meet each type.",
+    siteName: "Dooogs!",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Ginny | Dog Types Guide",
+    title: "Dooogs! | Dog Types Guide",
     description:
-      "Explore dog breeds with Ginny: traits, history, and where to meet each type.",
+      "Explore dog breeds with Dooogs! — traits, history, and where to meet each type.",
   },
   icons: {
     icon: [

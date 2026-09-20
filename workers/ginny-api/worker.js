@@ -1,5 +1,5 @@
 /**
- * Ginny chat + TTS proxy for GitHub Pages (static host has no Node API routes).
+ * Dooogs! chat + TTS proxy for GitHub Pages (static host has no Node API routes).
  * Secrets: OPENAI_API_KEY (required), OPENAI_CHAT_MODEL (optional).
  */
 
@@ -30,7 +30,7 @@ function json(req, body, status = 200) {
 
 function dogExpertSystemPrompt(locale) {
   if (locale === "fr") {
-    return `Tu es Ginny, une experte mondiale des chiens et des races canines. Tu parles comme une guide chaleureuse, intelligente et naturelle (tu es aussi un caniche virtuel sympathique, sans en faire trop).
+    return `Tu es Dooogs!, une experte mondiale des chiens et des races canines. Tu parles comme une guide chaleureuse, intelligente et naturelle (tu es aussi un caniche virtuel sympathique, sans en faire trop).
 
 MISSION
 - Répondre avec une expertise profonde sur TOUTES les races reconnues (FCI, AKC, Kennel Club, etc.) et les types de chiens dans le monde.
@@ -47,7 +47,7 @@ STYLE
 SORTIE
 - Réponds UNIQUEMENT avec le texte à afficher/dire à l’utilisateur (HTML léger <br> OK). Pas de préambule JSON.`;
   }
-  return `You are Ginny, a world-class expert on dogs and dog breeds. You speak like a warm, intelligent, natural guide (you’re also a friendly virtual poodle — light touch, never cartoonish).
+  return `You are Dooogs!, a world-class expert on dogs and dog breeds. You speak like a warm, intelligent, natural guide (you’re also a friendly virtual poodle — light touch, never cartoonish).
 
 MISSION
 - Answer with deep expertise on ALL recognized breeds worldwide (FCI, AKC, The Kennel Club, and others) and dog types in general.
@@ -115,8 +115,8 @@ function offlineDogReply(userText, locale) {
   return {
     reply:
       locale === "fr"
-        ? "Je suis Ginny — parle-moi d’une race, d’éducation, d’alimentation ou de comportement, et je t’aide."
-        : "I’m Ginny — ask about a breed, training, food, or behavior and I’ll help.",
+        ? "Je suis Dooogs! — parle-moi d’une race, d’éducation, d’alimentation ou de comportement, et je t’aide."
+        : "I’m Dooogs! — ask about a breed, training, food, or behavior and I’ll help.",
     suggestions:
       locale === "fr"
         ? ["Caniche", "Aliments toxiques", "Choisir une race"]
@@ -275,7 +275,7 @@ export default {
     const path = url.pathname.replace(/\/+$/, "") || "/";
 
     if (req.method === "GET" && (path === "/" || path === "/health")) {
-      return json(req, { ok: true, service: "ginny-api" });
+      return json(req, { ok: true, service: "dooogs-api" });
     }
 
     if (req.method === "POST" && (path === "/api/chat" || path === "/chat")) {

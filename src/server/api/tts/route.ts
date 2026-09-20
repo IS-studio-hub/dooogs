@@ -8,7 +8,7 @@ type Body = {
 };
 
 /**
- * Ginny spoken dialog — OpenAI TTS (human-like).
+ * Dooogs! spoken dialog — OpenAI TTS (human-like).
  * Set OPENAI_API_KEY in .env.local to enable.
  */
 export async function POST(req: Request) {

@@ -3,7 +3,7 @@
 import { LisaCharacter, type CharacterClip } from "./LisaCharacter";
 
 /**
- * Ginny media stage — 3D character with mouse look.
+ * Dooogs! media stage — 3D character with mouse look.
  */
 export function LisaMedia({
   clip = "idle",

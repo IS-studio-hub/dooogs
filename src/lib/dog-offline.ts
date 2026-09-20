@@ -117,8 +117,8 @@ export function offlineDogReply(
   return {
     reply:
       locale === "fr"
-        ? `Je suis Ginny, guide races & chiens du monde entier: origines, caractère, mode de vie, alimentation, éducation, toilettage, et où en voir davantage.<br><br>Pose-moi une race (ex. caniche, labrador) ou une question précise — je reste dans le fil de notre conversation.`
-        : `I’m Ginny, your guide to dogs and breeds worldwide — origins, personality, lifestyle, diet, training, grooming, and where to see more.<br><br>Ask about any breed (poodle, labrador…) or a specific question — I’ll keep our conversation in context.`,
+        ? `Je suis Dooogs!, guide races & chiens du monde entier: origines, caractère, mode de vie, alimentation, éducation, toilettage, et où en voir davantage.<br><br>Pose-moi une race (ex. caniche, labrador) ou une question précise — je reste dans le fil de notre conversation.`
+        : `I’m Dooogs!, your guide to dogs and breeds worldwide — origins, personality, lifestyle, diet, training, grooming, and where to see more.<br><br>Ask about any breed (poodle, labrador…) or a specific question — I’ll keep our conversation in context.`,
     suggestions:
       locale === "fr"
         ? ["Caniche", "Labrador", "Comment choisir"]

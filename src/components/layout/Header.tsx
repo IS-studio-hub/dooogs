@@ -9,7 +9,7 @@ const copy = {
   en: {
     menu: "Menu",
     close: "Close",
-    talk: "Chat with Ginny",
+    talk: "Chat with Dooogs!",
     shop: "Shop",
     lang: "Français",
     langHref: "/fr",
@@ -17,7 +17,7 @@ const copy = {
   fr: {
     menu: "Menu",
     close: "Fermer",
-    talk: "Parler à Ginny",
+    talk: "Parler à Dooogs!",
     shop: "Boutique",
     lang: "English",
     langHref: "/en",

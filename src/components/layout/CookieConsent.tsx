@@ -23,7 +23,7 @@ const copy = {
   },
 } as const;
 
-const STORAGE_KEY = "cc_cookie_ginny_local";
+const STORAGE_KEY = "cc_cookie_dooogs_local";
 
 export function CookieConsent({ locale }: { locale: Locale }) {
   const [visible, setVisible] = useState(false);

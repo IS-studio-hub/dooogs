@@ -47,7 +47,7 @@ type SpeakHandles = {
 /**
  * Prefer OpenAI HD TTS (real human-like). Falls back to best browser voice.
  */
-export function speakGinny(
+export function speakDooogs(
   html: string,
   locale: Locale,
   opts?: { onStart?: () => void; onEnd?: () => void }

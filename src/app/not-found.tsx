@@ -7,7 +7,7 @@ export default function NotFound() {
         <h1>404</h1>
         <p>This page could not be found.</p>
         <p style={{ marginTop: "1.5rem" }}>
-          <Link href="/en">Back to Ginny</Link>
+          <Link href="/en">Back to Dooogs!</Link>
         </p>
       </div>
     </div>

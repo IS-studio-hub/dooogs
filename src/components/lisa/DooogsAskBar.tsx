@@ -25,7 +25,7 @@ function getSpeechRecognition(): (new () => SpeechRec) | null {
   return w.SpeechRecognition || w.webkitSpeechRecognition || null;
 }
 
-export function GinnyAskBar({
+export function DooogsAskBar({
   locale,
   disabled,
   listening,
@@ -128,17 +128,17 @@ export function GinnyAskBar({
 
   return (
     <form
-      className="c-ginny-ask"
+      className="c-dooogs-ask"
       onSubmit={(e) => {
         e.preventDefault();
         send();
       }}
     >
-      <div className={clsx("c-ginny-ask_field", listening && "-listening")}>
+      <div className={clsx("c-dooogs-ask_field", listening && "-listening")}>
         <input
           ref={inputRef}
           type="text"
-          className="c-ginny-ask_input"
+          className="c-dooogs-ask_input"
           value={value}
           disabled={disabled}
           placeholder={
@@ -152,7 +152,7 @@ export function GinnyAskBar({
         />
         <button
           type="button"
-          className={clsx("c-ginny-ask_mic", listening && "-on")}
+          className={clsx("c-dooogs-ask_mic", listening && "-on")}
           aria-label={
             listening
               ? locale === "fr"
@@ -187,7 +187,7 @@ export function GinnyAskBar({
         </button>
         <button
           type="submit"
-          className="c-ginny-ask_send"
+          className="c-dooogs-ask_send"
           aria-label={locale === "fr" ? "Envoyer" : "Send"}
           disabled={disabled || !value.trim()}
         >

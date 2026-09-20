@@ -5,9 +5,9 @@
     "isCompact": true,
     "dialog": {
       "list": {
-        "ginny.intro.1": "Hi there — I’m Ginny,<br>your guide to dogs and breeds worldwide.",
-        "ginny.intro.2": "Hey! I’m Ginny. Ask me anything about dogs — I’m all ears.",
-        "ginny.intro.3": "I’m Ginny — history, personality, care, and where to meet every breed."
+        "dooogs.intro.1": "Hi there — I’m Dooogs!<br>your guide to dogs and breeds worldwide.",
+        "dooogs.intro.2": "Hey! I’m Dooogs! Ask me anything about dogs — I’m all ears.",
+        "dooogs.intro.3": "I’m Dooogs! — history, personality, care, and where to meet every breed."
       }
     },
     "media": []
@@ -16,9 +16,9 @@
     "progress": 0.2,
     "dialog": {
       "list": {
-        "ginny.chat.1": "What do you want to know? Pick a starter, type a question, or tap the mic and talk to me.",
-        "ginny.chat.2": "I’m here for breeds, behavior, food, training, grooming — and gentle detours that still come back to dogs.",
-        "ginny.chat.3": "Ask freely, or tap a suggestion. Follow-ups are welcome — I remember our thread."
+        "dooogs.chat.1": "What do you want to know? Pick a starter, type a question, or tap the mic and talk to me.",
+        "dooogs.chat.2": "I’m here for breeds, behavior, food, training, grooming — and gentle detours that still come back to dogs.",
+        "dooogs.chat.3": "Ask freely, or tap a suggestion. Follow-ups are welcome — I remember our thread."
       }
     },
     "choices": [
@@ -46,7 +46,7 @@
     "showErrors": true,
     "dialog": {
       "list": {
-        "ginny.form-error.1": "Oops — something glitched. Try asking again!"
+        "dooogs.form-error.1": "Oops — something glitched. Try asking again!"
       }
     },
     "choices": [

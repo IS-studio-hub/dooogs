@@ -11,14 +11,14 @@ export function Preloader() {
     document.documentElement.classList.add("is-first-loading", "is-loading");
     const quick =
       typeof window !== "undefined" &&
-      sessionStorage.getItem("ginny.quickpreload") === "1";
+      sessionStorage.getItem("dooogs.quickpreload") === "1";
     const delay = quick ? 400 : 1200;
 
     const t = window.setTimeout(() => {
       setDone(true);
       document.documentElement.classList.remove("is-first-loading", "is-loading");
       document.documentElement.classList.add("is-loaded", "is-ready");
-      sessionStorage.setItem("ginny.quickpreload", "1");
+      sessionStorage.setItem("dooogs.quickpreload", "1");
     }, delay);
 
     const hide = window.setTimeout(() => setHidden(true), delay + 900);

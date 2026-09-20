@@ -5,9 +5,9 @@
     "isCompact": true,
     "dialog": {
       "list": {
-        "ginny.intro.1": "Salut — moi c’est Ginny,<br>ta guide des chiens et des races du monde.",
-        "ginny.intro.2": "Hey! Je suis Ginny. Pose-moi n’importe quelle question sur les chiens.",
-        "ginny.intro.3": "Je suis Ginny — histoire, caractère, soins, et où rencontrer chaque race."
+        "dooogs.intro.1": "Salut — moi c’est Dooogs!<br>ta guide des chiens et des races du monde.",
+        "dooogs.intro.2": "Hey! Je suis Dooogs! Pose-moi n’importe quelle question sur les chiens.",
+        "dooogs.intro.3": "Je suis Dooogs! — histoire, caractère, soins, et où rencontrer chaque race."
       }
     },
     "media": []
@@ -16,9 +16,9 @@
     "progress": 0.2,
     "dialog": {
       "list": {
-        "ginny.chat.1": "Que veux-tu savoir? Choisis une suggestion, écris, ou appuie sur le micro pour me parler.",
-        "ginny.chat.2": "Je suis là pour races, comportement, alimentation, éducation, toilettage — et les digressions qui reviennent aux chiens.",
-        "ginny.chat.3": "Demande librement, ou tape une suggestion. Les questions de suivi sont les bienvenues — je garde le fil."
+        "dooogs.chat.1": "Que veux-tu savoir? Choisis une suggestion, écris, ou appuie sur le micro pour me parler.",
+        "dooogs.chat.2": "Je suis là pour races, comportement, alimentation, éducation, toilettage — et les digressions qui reviennent aux chiens.",
+        "dooogs.chat.3": "Demande librement, ou tape une suggestion. Les questions de suivi sont les bienvenues — je garde le fil."
       }
     },
     "choices": [
@@ -46,7 +46,7 @@
     "showErrors": true,
     "dialog": {
       "list": {
-        "ginny.form-error.1": "Oups — un petit bug. Réessaie ta question!"
+        "dooogs.form-error.1": "Oups — un petit bug. Réessaie ta question!"
       }
     },
     "choices": [
