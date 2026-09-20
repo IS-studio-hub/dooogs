@@ -43,6 +43,7 @@ export function DooogsAskBar({
   const [value, setValue] = useState("");
   const recRef = useRef<SpeechRec | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const hasText = value.trim().length > 0;
 
   useEffect(() => {
     return () => {
@@ -121,6 +122,7 @@ export function DooogsAskBar({
   function send() {
     const text = value.trim();
     if (!text || disabled) return;
+    if (listening) stopListening();
     onSubmit(text);
     setValue("");
     inputRef.current?.focus();
@@ -131,7 +133,7 @@ export function DooogsAskBar({
       className="c-dooogs-ask"
       onSubmit={(e) => {
         e.preventDefault();
-        send();
+        if (hasText) send();
       }}
     >
       <div className={clsx("c-dooogs-ask_field", listening && "-listening")}>
@@ -147,61 +149,68 @@ export function DooogsAskBar({
               ? "Demande n’importe quoi sur les chiens…"
               : "Ask anything about dogs…")
           }
-          onChange={(e) => setValue(e.target.value)}
+          onChange={(e) => {
+            const next = e.target.value;
+            if (next.trim() && listening) stopListening();
+            setValue(next);
+          }}
           aria-label={locale === "fr" ? "Ta question" : "Your question"}
         />
-        <button
-          type="button"
-          className={clsx("c-dooogs-ask_mic", listening && "-on")}
-          aria-label={
-            listening
-              ? locale === "fr"
-                ? "Arrêter l’enregistrement"
-                : "Stop recording"
-              : locale === "fr"
-                ? "Parler"
-                : "Speak"
-          }
-          disabled={disabled}
-          onClick={toggleMic}
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            {listening ? (
-              <rect x="7" y="7" width="10" height="10" rx="1.5" fill="currentColor" />
-            ) : (
-              <>
-                <path
-                  d="M12 3a3 3 0 0 0-3 3v6a3 3 0 1 0 6 0V6a3 3 0 0 0-3-3z"
-                  fill="currentColor"
-                />
-                <path
-                  d="M5 11a7 7 0 0 0 14 0M12 18v3"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                />
-              </>
-            )}
-          </svg>
-        </button>
-        <button
-          type="submit"
-          className="c-dooogs-ask_send"
-          aria-label={locale === "fr" ? "Envoyer" : "Send"}
-          disabled={disabled || !value.trim()}
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path
-              d="M5 12h12M13 6l6 6-6 6"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </button>
+        {hasText ? (
+          <button
+            type="submit"
+            className="c-dooogs-ask_action -send"
+            aria-label={locale === "fr" ? "Envoyer" : "Send"}
+            disabled={disabled}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M5 12h12M13 6l6 6-6 6"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+        ) : (
+          <button
+            type="button"
+            className={clsx("c-dooogs-ask_action -mic", listening && "-on")}
+            aria-label={
+              listening
+                ? locale === "fr"
+                  ? "Arrêter l’enregistrement"
+                  : "Stop recording"
+                : locale === "fr"
+                  ? "Parler"
+                  : "Speak"
+            }
+            disabled={disabled}
+            onClick={toggleMic}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              {listening ? (
+                <rect x="7" y="7" width="10" height="10" rx="1.5" fill="currentColor" />
+              ) : (
+                <>
+                  <path
+                    d="M12 3a3 3 0 0 0-3 3v6a3 3 0 1 0 6 0V6a3 3 0 0 0-3-3z"
+                    fill="currentColor"
+                  />
+                  <path
+                    d="M5 11a7 7 0 0 0 14 0M12 18v3"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                  />
+                </>
+              )}
+            </svg>
+          </button>
+        )}
       </div>
     </form>
   );

@@ -592,27 +592,28 @@ html:not(.has-menu-opened) .c-menu {
     color: #9a9a9a;
   }
 
-  .c-dooogs-ask_mic {
+  .c-dooogs-ask_action {
     width: 2.55rem;
     height: 2.55rem;
+  }
+
+  .c-dooogs-ask_action.-mic {
     border: 1.5px solid #111;
     background: #fff;
     color: #111;
   }
 
-  .c-dooogs-ask_send {
-    width: 2.55rem;
-    height: 2.55rem;
+  .c-dooogs-ask_action.-send {
     border: 0;
     background: #8d8d8d;
     color: #fff;
   }
 
-  .c-dooogs-ask_send:not(:disabled) {
+  .c-dooogs-ask_action.-send:not(:disabled) {
     background: #111;
   }
 
-  .c-dooogs-ask_send svg {
+  .c-dooogs-ask_action svg {
     width: 1.05rem;
     height: 1.05rem;
   }
@@ -951,8 +952,7 @@ html:not(.has-menu-opened) .c-menu {
   color: #8a8a8a;
 }
 
-.c-dooogs-ask_mic,
-.c-dooogs-ask_send {
+.c-dooogs-ask_action {
   flex: 0 0 auto;
   width: 2.4rem;
   height: 2.4rem;
@@ -960,31 +960,34 @@ html:not(.has-menu-opened) .c-menu {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--color);
-  background: var(--color-bg);
-  color: var(--color);
   cursor: pointer;
 }
 
-.c-dooogs-ask_send {
+.c-dooogs-ask_action.-mic {
+  border: 1px solid var(--color);
+  background: var(--color-bg);
+  color: var(--color);
+}
+
+.c-dooogs-ask_action.-send {
+  border: 1px solid var(--color);
   background: var(--color);
   color: var(--color-bg);
   font-size: 1.1rem;
   line-height: 1;
 }
 
-.c-dooogs-ask_mic svg {
+.c-dooogs-ask_action svg {
   width: 1.05rem;
   height: 1.05rem;
 }
 
-.c-dooogs-ask_mic.-on {
+.c-dooogs-ask_action.-mic.-on {
   background: var(--color);
   color: var(--color-bg);
 }
 
-.c-dooogs-ask_mic:disabled,
-.c-dooogs-ask_send:disabled {
+.c-dooogs-ask_action:disabled {
   opacity: 0.45;
   cursor: default;
 }
