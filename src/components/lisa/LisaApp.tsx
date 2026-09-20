@@ -10,7 +10,7 @@ import {
   type LisaModel,
   type Locale,
 } from "@/lib/lisa-types";
-import { speakDooogs } from "@/lib/dooogs-voice";
+import { speakDooogs, unlockDooogsAudio } from "@/lib/dooogs-voice";
 import { apiUrl } from "@/lib/api-url";
 import { withBase } from "@/lib/base-path";
 import { offlineDogReply } from "@/lib/dog-offline";
@@ -140,10 +140,13 @@ export function LisaApp({
         return;
       }
 
+      // User gesture path — unlock mobile audio and turn voice on for a live chat feel
+      unlockDooogsAudio();
+      setMuted(false);
+
       askingRef.current = true;
       setThinking(true);
       setExpanded(true);
-      if (opts?.fromMic) setMuted(false);
 
       const nextMessages: ChatMessage[] = [
         ...chatMessages,
@@ -278,7 +281,7 @@ export function LisaApp({
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
-    audio.volume = 0.35;
+    audio.volume = 0.28;
     if (!muted) {
       void audio.play().catch(() => undefined);
     } else {
@@ -286,26 +289,27 @@ export function LisaApp({
     }
   }, [muted]);
 
-  // Dooogs! speaks each dialog line when sound is on (skip the brief thinking line if muted stays on — still speak when unmuted)
+  // Dooogs! speaks each reply when voice is on (skip thinking placeholder)
   useEffect(() => {
     voiceStopRef.current?.();
     voiceStopRef.current = null;
     if (muted || !dialogHtml || thinking) return;
+    if (/thinking…|je réfléchis/i.test(dialogHtml)) return;
 
     const ambient = audioRef.current;
     const { stop } = speakDooogs(dialogHtml, locale, {
       onStart: () => {
-        if (ambient) ambient.volume = 0.12;
+        if (ambient) ambient.volume = 0.08;
       },
       onEnd: () => {
-        if (ambient && !muted) ambient.volume = 0.35;
+        if (ambient && !muted) ambient.volume = 0.28;
       },
     });
     voiceStopRef.current = stop;
     return () => {
       stop();
       voiceStopRef.current = null;
-      if (ambient && !muted) ambient.volume = 0.35;
+      if (ambient && !muted) ambient.volume = 0.28;
     };
   }, [dialogHtml, muted, locale, thinking]);
 
@@ -415,6 +419,8 @@ export function LisaApp({
   }
 
   function handleAskSubmit(text: string, meta?: { fromMic?: boolean }) {
+    unlockDooogsAudio();
+    setMuted(false);
     setSheetOpen(true);
     void askDog(text, { fromMic: Boolean(meta?.fromMic) });
   }
@@ -558,7 +564,10 @@ export function LisaApp({
         className={clsx("c-lisa_sound", muted && "-muted")}
         aria-label={locale === "fr" ? "Son / voix de Dooogs!" : "Sound / Dooogs! voice"}
         aria-pressed={!muted}
-        onClick={() => setMuted((m) => !m)}
+        onClick={() => {
+          unlockDooogsAudio();
+          setMuted((m) => !m);
+        }}
       >
         <span className="c-lisa_sound-icon -on" aria-hidden="true">
           <svg viewBox="0 0 24 24">

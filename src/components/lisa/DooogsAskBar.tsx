@@ -3,6 +3,7 @@
 import clsx from "clsx";
 import { useEffect, useRef, useState } from "react";
 import type { Locale } from "@/lib/lisa-types";
+import { unlockDooogsAudio } from "@/lib/dooogs-voice";
 
 type SpeechRec = {
   lang: string;
@@ -66,6 +67,7 @@ export function DooogsAskBar({
   }
 
   function startListening() {
+    unlockDooogsAudio();
     const Ctor = getSpeechRecognition();
     if (!Ctor) {
       onSubmit(
@@ -122,6 +124,7 @@ export function DooogsAskBar({
   function send() {
     const text = value.trim();
     if (!text || disabled) return;
+    unlockDooogsAudio();
     if (listening) stopListening();
     onSubmit(text);
     setValue("");
