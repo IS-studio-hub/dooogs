@@ -995,6 +995,10 @@ html:not(.has-menu-opened) .c-menu {
   box-shadow: 0 0 0 3px color-mix(in srgb, #c44 18%, transparent);
 }
 
+.c-dooogs-ask_field.-transcribing {
+  opacity: 0.88;
+}
+
 .c-dooogs-ask_input {
   flex: 1;
   min-width: 0;

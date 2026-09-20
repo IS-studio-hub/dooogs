@@ -14,7 +14,6 @@ import { speakDooogs, unlockDooogsAudio } from "@/lib/dooogs-voice";
 import { apiUrl } from "@/lib/api-url";
 import { withBase } from "@/lib/base-path";
 import { offlineDogReply } from "@/lib/dog-offline";
-import { tryBrowserOllama } from "@/lib/browser-ollama";
 import { isWeakDogReply } from "@/lib/dog-expert";
 import { isSafeHttpUrl, sanitizeDialogHtml, stripHtml } from "@/lib/safe-html";
 import { DooogsAskBar } from "./DooogsAskBar";
@@ -54,6 +53,7 @@ export function LisaApp({
   const [sheetOpen, setSheetOpen] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
   const voiceStopRef = useRef<(() => void) | null>(null);
+  const lastSpokenRef = useRef("");
   const autoTimer = useRef<number | null>(null);
   const typingLock = useRef(false);
   const dialogHtmlRef = useRef("");
@@ -162,9 +162,7 @@ export function LisaApp({
         ]);
       }
       const thinkingLine =
-        locale === "fr"
-          ? "Je réfléchis… une seconde."
-          : "Thinking… one second.";
+        locale === "fr" ? "…" : "…";
       setStepId("chat");
       setDialogHtml(thinkingLine);
       setTypingDone(false);
@@ -174,45 +172,28 @@ export function LisaApp({
         let reply = "";
         let suggestions: string[] | null = null;
 
-        // 1) Free local / tunnel Ollama when available (short timeout on phones)
-        const local = await tryBrowserOllama(nextMessages, locale);
-        if (local?.reply) {
-          reply = local.reply;
-          suggestions = local.suggestions;
-        }
-
-        // 2) Cloudflare Worker (Workers AI / remote Ollama)
-        if (!reply || isWeakDogReply(text, reply)) {
-          try {
-            const res = await fetch(apiUrl("/api/chat"), {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ messages: nextMessages, locale }),
-            });
-            if (res.ok) {
-              const data = (await res.json()) as {
-                reply?: string;
-                suggestions?: string[];
-              };
-              const workerReply = data.reply?.trim() || "";
-              if (workerReply && !isWeakDogReply(text, workerReply)) {
-                reply = workerReply;
-                if (Array.isArray(data.suggestions) && data.suggestions.length) {
-                  suggestions = data.suggestions;
-                }
-              } else if (!reply && workerReply) {
-                reply = workerReply;
-                if (Array.isArray(data.suggestions) && data.suggestions.length) {
-                  suggestions = data.suggestions;
-                }
-              }
+        // Single path for all devices: Cloudflare Worker (Workers AI)
+        try {
+          const res = await fetch(apiUrl("/api/chat"), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ messages: nextMessages, locale }),
+          });
+          if (res.ok) {
+            const data = (await res.json()) as {
+              reply?: string;
+              suggestions?: string[];
+            };
+            reply = data.reply?.trim() || "";
+            if (Array.isArray(data.suggestions) && data.suggestions.length) {
+              suggestions = data.suggestions;
             }
-          } catch {
-            /* fall through to offline */
           }
+        } catch {
+          /* fall through to offline */
         }
 
-        // 3) Rich offline breed knowledge — always beat vague / empty replies
+        // Last resort: local breed knowledge (uses history for follow-ups)
         if (!reply || isWeakDogReply(text, reply)) {
           const offline = offlineDogReply(text, locale, nextMessages);
           reply = offline.reply;
@@ -221,7 +202,6 @@ export function LisaApp({
 
         setChatMessages((m) => [...m, { role: "assistant", content: reply }]);
         setAiSuggestions(suggestions);
-        // Thinking line is current — replace in place (prior reply already archived)
         showAssistantReply(reply, { pushPrior: false });
       } catch {
         const offline = offlineDogReply(text, locale, nextMessages);
@@ -289,12 +269,15 @@ export function LisaApp({
     }
   }, [muted]);
 
-  // Dooogs! speaks each reply when voice is on (skip thinking placeholder)
+  // Speak once when the final assistant reply lands (shared TTS only)
   useEffect(() => {
+    if (muted || thinking || !dialogHtml) return;
+    if (dialogHtml === "…" || /thinking…|je réfléchis/i.test(dialogHtml)) return;
+    if (lastSpokenRef.current === dialogHtml) return;
+
+    lastSpokenRef.current = dialogHtml;
     voiceStopRef.current?.();
     voiceStopRef.current = null;
-    if (muted || !dialogHtml || thinking) return;
-    if (/thinking…|je réfléchis/i.test(dialogHtml)) return;
 
     const ambient = audioRef.current;
     const { stop } = speakDooogs(dialogHtml, locale, {
@@ -303,6 +286,14 @@ export function LisaApp({
       },
       onEnd: () => {
         if (ambient && !muted) ambient.volume = 0.28;
+      },
+      onError: () => {
+        setToast(
+          locale === "fr"
+            ? "Voix indisponible un instant — le texte est là."
+            : "Voice unavailable briefly — text still works."
+        );
+        window.setTimeout(() => setToast(null), 2800);
       },
     });
     voiceStopRef.current = stop;
@@ -472,10 +463,14 @@ export function LisaApp({
             {showAskBar ? (
               <DooogsAskBar
                 locale={locale}
-                disabled={thinking || !typingDone}
+                disabled={thinking}
                 listening={listening}
                 onListeningChange={setListening}
                 onSubmit={handleAskSubmit}
+                onNotice={(message) => {
+                  setToast(message);
+                  window.setTimeout(() => setToast(null), 3200);
+                }}
                 placeholder={
                   locale === "fr" ? "Et les chiens ?" : "What about dogs?"
                 }
@@ -566,7 +561,10 @@ export function LisaApp({
         aria-pressed={!muted}
         onClick={() => {
           unlockDooogsAudio();
-          setMuted((m) => !m);
+          setMuted((m) => {
+            if (m) lastSpokenRef.current = "";
+            return !m;
+          });
         }}
       >
         <span className="c-lisa_sound-icon -on" aria-hidden="true">

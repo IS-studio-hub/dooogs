@@ -136,13 +136,66 @@ function isOffTopic(text: string): boolean {
   return !doggy;
 }
 
+export function getBreedKnowledgeSnippet(
+  text: string,
+  locale: "en" | "fr"
+): string | null {
+  const id = detectBreed(text);
+  if (!id) return null;
+  const entry = BREEDS[id];
+  const raw = locale === "fr" ? entry.fr : entry.en;
+  return raw
+    .replace(/<br\s*\/?>/gi, " ")
+    .replace(/<\/?[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 500);
+}
+
 export function offlineDogReply(
   userText: string,
   locale: "en" | "fr",
   history?: Msg[]
 ): OfflineResult {
-  void history;
-  const breed = detectBreed(userText);
+  const followUp = /more|else|also|and |what about|tell me|encore|aussi|autre|et l|dis-moi|plus/i.test(
+    userText
+  );
+  const priorAssistant = [...(history || [])]
+    .reverse()
+    .find((m) => m.role === "assistant")?.content;
+  const priorBreed =
+    detectBreed(userText) ||
+    (priorAssistant ? detectBreed(priorAssistant) : null) ||
+    (history || [])
+      .map((m) => detectBreed(m.content))
+      .filter(Boolean)
+      .pop();
+
+  // Follow-up on same breed → add a fresh angle instead of repeating the blurb
+  if (followUp && priorBreed && BREEDS[priorBreed]) {
+    const angles =
+      locale === "fr"
+        ? [
+            `Pour continuer sur cette race, côté vie quotidienne: rythme de promenades, stimulation mentale, et ce qu’il faut éviter à la maison. Tu veux qu’on parle éducation, alimentation, ou vie en appart?`,
+            `Autre angle: socialisation précoce, force en laisse, et compatibilité famille/enfants. Qu’est-ce qui t’intéresse le plus?`,
+            `Pour approfondir: santé typique à surveiller, toilettage, et où rencontrer de beaux sujets (clubs, expos). On commence par quoi?`,
+          ]
+        : [
+            `More on this breed day-to-day: walk rhythm, mental work, and what to keep out of the house. Want training, food, or apartment life next?`,
+            `Another angle: early socialization, leash manners, and family fit. What matters most to you right now?`,
+            `Let’s go deeper: typical health watch-outs, grooming, and where to meet great examples (clubs, shows). Where should we start?`,
+          ];
+    const pick = angles[(userText.length + (history?.length || 0)) % angles.length];
+    return {
+      reply: pick,
+      suggestions:
+        locale === "fr"
+          ? ["Éducation", "Alimentation", "Autre race"]
+          : ["Training tips", "Diet & foods", "Another breed"],
+    };
+  }
+
+  const breed = detectBreed(userText) || (followUp ? priorBreed : null);
   if (breed) {
     const entry = BREEDS[breed];
     return {

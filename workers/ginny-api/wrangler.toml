@@ -6,5 +6,5 @@ compatibility_date = "2024-09-23"
 binding = "AI"
 
 [vars]
-OLLAMA_BASE_URL = "https://intention-checked-shade-items.trycloudflare.com"
 OLLAMA_CHAT_MODEL = "llama3.1:8b"
+# OLLAMA_BASE_URL optional — leave unset so Workers AI is the primary path for all devices

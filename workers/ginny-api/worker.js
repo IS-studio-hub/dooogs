@@ -11,9 +11,14 @@ const ALLOWED_ORIGINS = [
 ];
 
 const WORKERS_AI_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
-// Public Ollama tunnel (kept alive via scripts/serve-public-ollama.sh). Same model phones + desktop use.
-const DEFAULT_OLLAMA_BASE_URL = "https://intention-checked-shade-items.trycloudflare.com";
+const WHISPER_MODEL = "@cf/openai/whisper";
+// Optional secondary Ollama — Workers AI is primary for all devices
+const DEFAULT_OLLAMA_BASE_URL = "";
 const DEFAULT_OLLAMA_MODEL = "llama3.1:8b";
+
+/** Short-lived TTS cache so phone + desktop get identical audio for the same line */
+const ttsCache = new Map();
+const TTS_CACHE_MAX = 40;
 
 
 function corsHeaders(req) {
@@ -22,7 +27,7 @@ function corsHeaders(req) {
   return {
     "Access-Control-Allow-Origin": allow,
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
     "Access-Control-Max-Age": "86400",
     "X-Content-Type-Options": "nosniff",
     "Referrer-Policy": "strict-origin-when-cross-origin",
@@ -44,7 +49,7 @@ function dogExpertSystemPrompt(locale) {
 
 MISSION
 - Répondre UNIQUEMENT dans l’univers des chiens: races (FCI, AKC, Kennel Club, etc.), histoire, caractère, alimentation (y compris toxiques), éducation, toilettage, santé typique, sport canin, voyage avec un chien, choix de race, clubs/expos.
-- Mémoriser le fil et gérer les suivis sans faire répéter l’utilisateur.
+- Mémoriser le fil et gérer les suivis sans faire répéter l’utilisateur. Ne répète jamais ta réponse précédente mot pour mot — ajoute un nouvel angle.
 - Tu connais aussi les types “bully” / pit bull (American Pit Bull Terrier, American Staffordshire Terrier, Staffordshire Bull Terrier): origines, caractère, besoins, mythes vs réalité — nuance, pas sensationnalisme.
 
 RÈGLE D’OR — RÉPONDRE D’ABORD
@@ -55,6 +60,10 @@ RÈGLE D’OR — RÉPONDRE D’ABORD
 HORS SUJET (OBLIGATOIRE)
 - Si le message n’est pas vraiment sur les chiens: accroche en 1 phrase, puis bascule vers un angle CHIENS.
 - INTERDIT de dire: “je ne parle que de chiens”, “hors sujet”.
+
+CONTINUITÉ
+- Lis tout l’historique. Les suivis (“dis-moi plus”, “et l’éducation?”) restent sur le même sujet/race.
+- Si un CONTEXTE RACE est fourni ci-dessous, utilise ces faits et développe — ne les ignore pas.
 
 STYLE
 - Français naturel, comme une vraie conversation avec une amie experte — chaleureux, vivant, jamais robotique.
@@ -70,7 +79,7 @@ SORTIE
 
 MISSION
 - Stay ONLY in the dog world: breeds worldwide (FCI, AKC, The Kennel Club, etc.), history, personality, food (including toxic foods), training, grooming, typical health notes, dog sports, traveling with dogs, choosing a breed, clubs/shows.
-- Remember conversation context and handle follow-ups without making the user repeat themselves.
+- Remember conversation context and handle follow-ups without making the user repeat themselves. Never repeat your previous answer verbatim — add a new angle or detail.
 - You know “bully” / pit bull–type dogs (American Pit Bull Terrier, American Staffordshire Terrier, Staffordshire Bull Terrier): origins, temperament, needs, myths vs reality — nuanced, never sensational.
 
 GOLDEN RULE — ANSWER FIRST
@@ -81,6 +90,10 @@ GOLDEN RULE — ANSWER FIRST
 OFF-TOPIC (REQUIRED)
 - If the message isn’t really about dogs: hook in one light line, then immediately pivot into a related DOG angle.
 - NEVER say: “I only talk about dogs”, “that’s off-topic”.
+
+CONTINUITY
+- Read the whole chat history. Follow-ups like “tell me more”, “and training?”, “what about food?” continue the same breed/topic.
+- If BREED CONTEXT is provided below, use those facts and expand conversationally — do not ignore them.
 
 STYLE
 - Sound like a real person on a phone call: warm, clear, conversational — never robotic or lecture-y.
@@ -237,6 +250,39 @@ function defaultSuggestions(locale) {
     : ["Tell me more", "Another breed", "Training tips"];
 }
 
+function breedContextFor(text, locale) {
+  const t = (text || "").toLowerCase();
+  const breeds = [
+    { keys: ["pitbull", "pit bull", "pittie", "amstaff", "stafford", "staffy", "bully"], en: "Pit bull–type / bully breeds: APBT, AmStaff, Staffy — athletic, people-oriented when raised well; need exercise, socialization, consistent ownership.", fr: "Types pit bull / bully: APBT, AmStaff, Staffy — athlétiques, orientés humain si bien élevés; exercice, socialisation, cadre constant." },
+    { keys: ["poodle", "caniche"], en: "Poodles: brilliant water dogs, curly low-shed coat, high trainability, need grooming + brain games.", fr: "Caniche: chien d’eau brillant, poil bouclé, très éducable, toilettage + jeux mentaux." },
+    { keys: ["labrador", "lab "], en: "Labrador: friendly gundog, high energy, food-motivated, watch weight.", fr: "Labrador: chien de rapport amical, énergivore, motivé nourriture, attention poids." },
+    { keys: ["german shepherd", "berger allemand", "gsd"], en: "German Shepherd: versatile working dog; needs structure, training, serious exercise.", fr: "Berger allemand: chien de travail polyvalent; structure, éducation, gros exercice." },
+    { keys: ["golden"], en: "Golden Retriever: warm gundog, soft mouth, needs a job + grooming.", fr: "Golden: chien de rapport chaleureux, besoin d’un job + toilettage." },
+    { keys: ["border collie", "border"], en: "Border Collie: elite herding athlete; needs a real job or invents chaos.", fr: "Border Collie: athlète de troupeau; il lui faut un vrai job." },
+    { keys: ["husky", "siberian"], en: "Siberian Husky: endurance sled dog; serious exercise, secure fencing, heat-sensitive.", fr: "Husky: chien de traîneau d’endurance; gros exercice, clôture, sensible à la chaleur." },
+    { keys: ["french bulldog", "frenchie", "bouledogue"], en: "French Bulldog: compact companion; mind heat and breathing; moderate walks.", fr: "Bouledogue français: compagnon compact; attention chaleur/respiration." },
+    { keys: ["beagle"], en: "Beagle: scent hound, nose-driven, vocal; needs sniff walks + secure fence.", fr: "Beagle: chien courant, mené par le nez; balades snif + jardin sécurisé." },
+    { keys: ["dachshund", "teckel", "doxie"], en: "Dachshund: bold long-backed; protect the spine, watch weight.", fr: "Teckel: audacieux, dos long; protéger le dos, attention poids." },
+    { keys: ["corgi"], en: "Corgi: short-legged herder, big personality; watch weight (long back).", fr: "Corgi: troupeau bas sur pattes; attention poids." },
+    { keys: ["rottweiler", "rott"], en: "Rottweiler: powerful working dog; early socialization + clear leadership.", fr: "Rottweiler: chien de travail puissant; socialisation précoce + cadre clair." },
+    { keys: ["aussie", "australian shepherd"], en: "Australian Shepherd: energetic herder; needs a job (agility/herding).", fr: "Australian Shepherd: troupeau énergique; besoin d’un job." },
+  ];
+  for (const b of breeds) {
+    if (b.keys.some((k) => t.includes(k))) return locale === "fr" ? b.fr : b.en;
+  }
+  return "";
+}
+
+function buildSystem(locale, lastUser) {
+  const hint = breedContextFor(lastUser, locale);
+  const breedBlock = hint
+    ? locale === "fr"
+      ? `\n\nCONTEXTE RACE (faits à utiliser):\n${hint}`
+      : `\n\nBREED CONTEXT (use these facts):\n${hint}`
+    : "";
+  return `${dogExpertSystemPrompt(locale)}${breedBlock}\n\n${suggestionSystemExtra(locale)}`;
+}
+
 async function chatViaOllama(cleaned, locale, env) {
   const base = (env.OLLAMA_BASE_URL || DEFAULT_OLLAMA_BASE_URL || "")
     .trim()
@@ -244,14 +290,15 @@ async function chatViaOllama(cleaned, locale, env) {
   if (!base) return null;
 
   const model = (env.OLLAMA_CHAT_MODEL || DEFAULT_OLLAMA_MODEL || "llama3.1:8b").trim();
-  const system = `${dogExpertSystemPrompt(locale)}\n\n${suggestionSystemExtra(locale)}`;
+  const lastUser = cleaned[cleaned.length - 1]?.content || "";
+  const system = buildSystem(locale, lastUser);
   const upstream = await fetch(`${base}/v1/chat/completions`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       model,
-      temperature: 0.55,
-      max_tokens: 1100,
+      temperature: 0.45,
+      max_tokens: 550,
       messages: [{ role: "system", content: system }, ...cleaned],
     }),
   });
@@ -273,11 +320,12 @@ async function chatViaOllama(cleaned, locale, env) {
 async function chatViaWorkersAI(cleaned, locale, env) {
   if (!env.AI) throw new Error("workers_ai_missing");
 
-  const system = `${dogExpertSystemPrompt(locale)}\n\n${suggestionSystemExtra(locale)}`;
+  const lastUser = cleaned[cleaned.length - 1]?.content || "";
+  const system = buildSystem(locale, lastUser);
   const result = await env.AI.run(WORKERS_AI_MODEL, {
     messages: [{ role: "system", content: system }, ...cleaned],
-    max_tokens: 1100,
-    temperature: 0.55,
+    max_tokens: 550,
+    temperature: 0.45,
   });
 
   const raw =
@@ -341,18 +389,23 @@ async function handleChat(req, env) {
   }
 
   try {
-    const ollama = await chatViaOllama(cleaned, locale, env);
-    if (ollama?.reply && !isWeak(ollama.reply)) return json(req, ollama);
-
+    // Primary: Workers AI (same on every device)
     try {
       const ai = await chatViaWorkersAI(cleaned, locale, env);
       if (ai?.reply && !isWeak(ai.reply)) return json(req, ai);
-      if (ai?.reply && !ollama?.reply) return json(req, ai);
+      if (ai?.reply) return json(req, ai);
     } catch {
-      /* fall through */
+      /* try ollama / offline */
     }
 
-    if (ollama?.reply) return json(req, ollama);
+    // Optional secondary Ollama if configured
+    try {
+      const ollama = await chatViaOllama(cleaned, locale, env);
+      if (ollama?.reply && !isWeak(ollama.reply)) return json(req, ollama);
+      if (ollama?.reply) return json(req, ollama);
+    } catch {
+      /* offline */
+    }
 
     const offline = offlineDogReply(lastUser, locale);
     return json(req, { ...offline, source: "offline_fallback" });
@@ -363,6 +416,59 @@ async function handleChat(req, env) {
       source: "offline_fallback",
       detail: err instanceof Error ? err.message.slice(0, 200) : "chat_failed",
     });
+  }
+}
+
+async function handleStt(req, env) {
+  if (!env.AI) return json(req, { error: "stt_unavailable" }, 503);
+
+  let locale = "en";
+  let bytes;
+  try {
+    const ct = req.headers.get("content-type") || "";
+    if (ct.includes("multipart/form-data")) {
+      const form = await req.formData();
+      locale = form.get("locale") === "fr" ? "fr" : "en";
+      const file = form.get("audio");
+      if (!file || typeof file === "string") {
+        return json(req, { error: "missing_audio" }, 400);
+      }
+      bytes = new Uint8Array(await file.arrayBuffer());
+    } else {
+      bytes = new Uint8Array(await req.arrayBuffer());
+    }
+  } catch {
+    return json(req, { error: "invalid_audio" }, 400);
+  }
+
+  if (!bytes?.length || bytes.length < 400) {
+    return json(req, { error: "audio_too_short" }, 400);
+  }
+  // Cap ~2MB
+  if (bytes.length > 2_000_000) {
+    return json(req, { error: "audio_too_large" }, 413);
+  }
+
+  try {
+    const result = await env.AI.run(WHISPER_MODEL, {
+      audio: [...bytes],
+    });
+    const text = String(
+      result?.text || result?.result?.text || result?.transcription || ""
+    )
+      .replace(/\s+/g, " ")
+      .trim();
+    if (!text) return json(req, { error: "empty_transcript" }, 422);
+    return json(req, { text, locale, source: `whisper:${WHISPER_MODEL}` });
+  } catch (err) {
+    return json(
+      req,
+      {
+        error: "stt_failed",
+        detail: err instanceof Error ? err.message.slice(0, 200) : "unknown",
+      },
+      502
+    );
   }
 }
 
@@ -377,9 +483,18 @@ async function handleTts(req) {
   const text = (body.text ?? "").replace(/\s+/g, " ").trim().slice(0, 1800);
   if (!text) return json(req, { error: "empty_text" }, 400);
   const locale = body.locale === "fr" ? "fr" : "en";
+  const cacheKey = `${locale}:${text}`;
 
   try {
-    const audio = await synthesizeSharedTts(text, locale);
+    let audio = ttsCache.get(cacheKey);
+    if (!audio) {
+      audio = await synthesizeSharedTts(text, locale);
+      if (ttsCache.size >= TTS_CACHE_MAX) {
+        const first = ttsCache.keys().next().value;
+        ttsCache.delete(first);
+      }
+      ttsCache.set(cacheKey, audio);
+    }
     return new Response(audio, {
       status: 200,
       headers: {
@@ -426,7 +541,8 @@ function splitTtsChunks(text, maxLen = 160) {
 async function synthesizeSharedTts(text, locale) {
   const chunks = splitTtsChunks(text);
   if (!chunks.length) throw new Error("empty_text");
-  const tl = locale === "fr" ? "fr" : "en-US";
+  // Unify language tag (same voice on every device)
+  const tl = locale === "fr" ? "fr" : "en";
   const parts = [];
   for (const chunk of chunks) {
     const url =
@@ -444,6 +560,7 @@ async function synthesizeSharedTts(text, locale) {
     const buf = new Uint8Array(await res.arrayBuffer());
     if (!buf.length) throw new Error("tts_empty");
     parts.push(buf);
+    await new Promise((r) => setTimeout(r, 40));
   }
   const total = parts.reduce((n, p) => n + p.length, 0);
   const out = new Uint8Array(total);
@@ -468,9 +585,10 @@ export default {
       return json(req, {
         ok: true,
         service: "dooogs-api",
-        chat: "ollama",
-        model: env.OLLAMA_CHAT_MODEL || DEFAULT_OLLAMA_MODEL,
-        ollama: env.OLLAMA_BASE_URL || DEFAULT_OLLAMA_BASE_URL,
+        chat: "workers-ai",
+        stt: WHISPER_MODEL,
+        tts: "shared-google",
+        model: WORKERS_AI_MODEL,
       });
     }
 
@@ -479,6 +597,9 @@ export default {
     }
     if (req.method === "POST" && (path === "/api/tts" || path === "/tts")) {
       return handleTts(req);
+    }
+    if (req.method === "POST" && (path === "/api/stt" || path === "/stt")) {
+      return handleStt(req, env);
     }
 
     return json(req, { error: "not_found", path }, 404);

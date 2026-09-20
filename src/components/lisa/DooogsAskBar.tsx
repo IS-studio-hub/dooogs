@@ -3,27 +3,20 @@
 import clsx from "clsx";
 import { useEffect, useRef, useState } from "react";
 import type { Locale } from "@/lib/lisa-types";
+import { apiUrl } from "@/lib/api-url";
 import { unlockDooogsAudio } from "@/lib/dooogs-voice";
 
-type SpeechRec = {
-  lang: string;
-  continuous: boolean;
-  interimResults: boolean;
-  onresult: ((ev: { results: { [i: number]: { [j: number]: { transcript: string }; isFinal: boolean } } }) => void) | null;
-  onerror: ((ev: { error?: string }) => void) | null;
-  onend: (() => void) | null;
-  start: () => void;
-  stop: () => void;
-  abort: () => void;
-};
-
-function getSpeechRecognition(): (new () => SpeechRec) | null {
-  if (typeof window === "undefined") return null;
-  const w = window as unknown as {
-    SpeechRecognition?: new () => SpeechRec;
-    webkitSpeechRecognition?: new () => SpeechRec;
-  };
-  return w.SpeechRecognition || w.webkitSpeechRecognition || null;
+function pickRecorderMime(): string {
+  if (typeof MediaRecorder === "undefined") return "";
+  const candidates = [
+    "audio/webm;codecs=opus",
+    "audio/webm",
+    "audio/mp4",
+    "audio/aac",
+    "audio/ogg;codecs=opus",
+    "audio/ogg",
+  ];
+  return candidates.find((t) => MediaRecorder.isTypeSupported(t)) || "";
 }
 
 export function DooogsAskBar({
@@ -32,6 +25,7 @@ export function DooogsAskBar({
   listening,
   onListeningChange,
   onSubmit,
+  onNotice,
   placeholder,
 }: {
   locale: Locale;
@@ -39,91 +33,211 @@ export function DooogsAskBar({
   listening: boolean;
   onListeningChange: (v: boolean) => void;
   onSubmit: (text: string, meta?: { fromMic?: boolean }) => void;
+  onNotice?: (message: string) => void;
   placeholder?: string;
 }) {
   const [value, setValue] = useState("");
-  const recRef = useRef<SpeechRec | null>(null);
+  const [transcribing, setTranscribing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const mediaRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
+  const maxTimerRef = useRef<number | null>(null);
   const hasText = value.trim().length > 0;
+  const busy = Boolean(disabled || transcribing);
 
   useEffect(() => {
     return () => {
-      try {
-        recRef.current?.abort();
-      } catch {
-        /* ignore */
-      }
+      teardownRecorder();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  function stopListening() {
+  function notice(msg: string) {
+    onNotice?.(msg);
+  }
+
+  function teardownRecorder() {
+    if (maxTimerRef.current) {
+      window.clearTimeout(maxTimerRef.current);
+      maxTimerRef.current = null;
+    }
     try {
-      recRef.current?.stop();
+      mediaRef.current?.stop();
     } catch {
       /* ignore */
     }
-    recRef.current = null;
-    onListeningChange(false);
+    mediaRef.current = null;
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+    chunksRef.current = [];
   }
 
-  function startListening() {
-    unlockDooogsAudio();
-    const Ctor = getSpeechRecognition();
-    if (!Ctor) {
-      onSubmit(
+  async function transcribeBlob(blob: Blob): Promise<string | null> {
+    const form = new FormData();
+    const ext = blob.type.includes("mp4") || blob.type.includes("aac") ? "m4a" : "webm";
+    form.append("audio", blob, `dooogs-mic.${ext}`);
+    form.append("locale", locale);
+
+    const res = await fetch(apiUrl("/api/stt"), {
+      method: "POST",
+      body: form,
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { text?: string; error?: string };
+    const text = data.text?.trim() || "";
+    return text || null;
+  }
+
+  async function finishRecording(blob: Blob | null) {
+    teardownRecorder();
+    onListeningChange(false);
+
+    if (!blob || blob.size < 800) {
+      notice(
         locale === "fr"
-          ? "(Le micro n’est pas supporté sur ce navigateur — tape ta question.)"
-          : "(Microphone isn’t supported in this browser — please type your question.)"
+          ? "Je n’ai rien entendu — réessaie ou tape ta question."
+          : "I didn’t catch that — try again or type your question."
       );
       return;
     }
-    const rec = new Ctor();
-    rec.lang = locale === "fr" ? "fr-FR" : "en-US";
-    rec.continuous = false;
-    rec.interimResults = true;
-    rec.onresult = (ev) => {
-      let finalText = "";
-      let interim = "";
-      const results = ev.results;
-      for (let i = 0; i < (results as unknown as { length: number }).length; i++) {
-        const row = results[i];
-        const piece = row?.[0]?.transcript ?? "";
-        if (row?.isFinal) finalText += piece;
-        else interim += piece;
-      }
-      const next = (finalText || interim).trim();
-      if (next) setValue(next);
-      if (finalText.trim()) {
-        const text = finalText.trim();
-        setValue(text);
-        stopListening();
-        onSubmit(text, { fromMic: true });
-        setValue("");
-      }
-    };
-    rec.onerror = () => stopListening();
-    rec.onend = () => {
-      onListeningChange(false);
-      recRef.current = null;
-    };
-    recRef.current = rec;
-    onListeningChange(true);
+
+    setTranscribing(true);
     try {
-      rec.start();
+      const text = await transcribeBlob(blob);
+      if (!text) {
+        notice(
+          locale === "fr"
+            ? "Transcription impossible — tape ta question."
+            : "Couldn’t transcribe — please type your question."
+        );
+        return;
+      }
+      setValue(text);
+      onSubmit(text, { fromMic: true });
+      setValue("");
     } catch {
-      stopListening();
+      notice(
+        locale === "fr"
+          ? "Micro en erreur — tape ta question."
+          : "Mic error — please type your question."
+      );
+    } finally {
+      setTranscribing(false);
+    }
+  }
+
+  async function startListening() {
+    unlockDooogsAudio();
+    if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+      notice(
+        locale === "fr"
+          ? "Micro non supporté — tape ta question."
+          : "Microphone not supported — please type your question."
+      );
+      return;
+    }
+    if (typeof MediaRecorder === "undefined") {
+      notice(
+        locale === "fr"
+          ? "Enregistrement non supporté — tape ta question."
+          : "Recording not supported — please type your question."
+      );
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
+      streamRef.current = stream;
+      const mime = pickRecorderMime();
+      const recorder = mime
+        ? new MediaRecorder(stream, { mimeType: mime })
+        : new MediaRecorder(stream);
+      chunksRef.current = [];
+      recorder.ondataavailable = (ev) => {
+        if (ev.data.size > 0) chunksRef.current.push(ev.data);
+      };
+      recorder.onstop = () => {
+        const type = recorder.mimeType || mime || "audio/webm";
+        const blob = new Blob(chunksRef.current, { type });
+        void finishRecording(blob);
+      };
+      recorder.onerror = () => {
+        teardownRecorder();
+        onListeningChange(false);
+        notice(
+          locale === "fr"
+            ? "Erreur micro — tape ta question."
+            : "Mic error — please type your question."
+        );
+      };
+      mediaRef.current = recorder;
+      recorder.start(250);
+      onListeningChange(true);
+      // Auto-stop so Whisper gets a bounded clip
+      maxTimerRef.current = window.setTimeout(() => {
+        if (mediaRef.current?.state === "recording") {
+          try {
+            mediaRef.current.stop();
+          } catch {
+            /* ignore */
+          }
+        }
+      }, 12_000);
+    } catch (err) {
+      const name = err instanceof DOMException ? err.name : "";
+      if (name === "NotAllowedError" || name === "PermissionDeniedError") {
+        notice(
+          locale === "fr"
+            ? "Autorise le micro dans le navigateur, ou tape ta question."
+            : "Allow microphone access, or type your question."
+        );
+      } else {
+        notice(
+          locale === "fr"
+            ? "Micro indisponible — tape ta question."
+            : "Microphone unavailable — please type your question."
+        );
+      }
+      teardownRecorder();
+      onListeningChange(false);
+    }
+  }
+
+  function stopListening() {
+    if (maxTimerRef.current) {
+      window.clearTimeout(maxTimerRef.current);
+      maxTimerRef.current = null;
+    }
+    const rec = mediaRef.current;
+    if (rec && rec.state === "recording") {
+      try {
+        rec.stop();
+      } catch {
+        teardownRecorder();
+        onListeningChange(false);
+      }
+    } else {
+      teardownRecorder();
+      onListeningChange(false);
     }
   }
 
   function toggleMic() {
-    if (disabled) return;
+    if (busy) return;
     if (listening) stopListening();
-    else startListening();
+    else void startListening();
   }
 
   function send() {
     const text = value.trim();
-    if (!text || disabled) return;
+    if (!text || busy) return;
     unlockDooogsAudio();
     if (listening) stopListening();
     onSubmit(text);
@@ -139,18 +253,32 @@ export function DooogsAskBar({
         if (hasText) send();
       }}
     >
-      <div className={clsx("c-dooogs-ask_field", listening && "-listening")}>
+      <div
+        className={clsx(
+          "c-dooogs-ask_field",
+          listening && "-listening",
+          transcribing && "-transcribing"
+        )}
+      >
         <input
           ref={inputRef}
           type="text"
           className="c-dooogs-ask_input"
           value={value}
-          disabled={disabled}
+          disabled={busy}
           placeholder={
-            placeholder ||
-            (locale === "fr"
-              ? "Demande n’importe quoi sur les chiens…"
-              : "Ask anything about dogs…")
+            transcribing
+              ? locale === "fr"
+                ? "Je t’écoute…"
+                : "Hearing you…"
+              : listening
+                ? locale === "fr"
+                  ? "Parle… appuie pour envoyer"
+                  : "Speak… tap to send"
+                : placeholder ||
+                  (locale === "fr"
+                    ? "Demande n’importe quoi sur les chiens…"
+                    : "Ask anything about dogs…")
           }
           onChange={(e) => {
             const next = e.target.value;
@@ -159,12 +287,12 @@ export function DooogsAskBar({
           }}
           aria-label={locale === "fr" ? "Ta question" : "Your question"}
         />
-        {hasText ? (
+        {hasText && !listening ? (
           <button
             type="submit"
             className="c-dooogs-ask_action -send"
             aria-label={locale === "fr" ? "Envoyer" : "Send"}
-            disabled={disabled}
+            disabled={busy}
           >
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path
@@ -184,13 +312,13 @@ export function DooogsAskBar({
             aria-label={
               listening
                 ? locale === "fr"
-                  ? "Arrêter l’enregistrement"
-                  : "Stop recording"
+                  ? "Arrêter et envoyer"
+                  : "Stop and send"
                 : locale === "fr"
                   ? "Parler"
                   : "Speak"
             }
-            disabled={disabled}
+            disabled={busy}
             onClick={toggleMic}
           >
             <svg viewBox="0 0 24 24" aria-hidden="true">
