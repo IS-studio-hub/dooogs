@@ -103,11 +103,11 @@ export function isWeakDogReply(userText: string, replyHtml: string): boolean {
     .replace(/\s+/g, " ")
     .trim()
     .toLowerCase();
-  if (reply.length < 90) return true;
+  if (reply.length < 120) return true;
 
   const qMarks = (reply.match(/\?/g) || []).length;
   const hasSubstance =
-    /temperament|personality|history|origin|bred|exercise|train|groom|energy|loyal|family|apartment|owner|caractère|histoire|origine|exercice|éducation|énergie|loyal|famille|appart/.test(
+    /temperament|personality|history|origin|bred|exercise|train|groom|energy|loyal|family|apartment|owner|caractère|histoire|origine|exercice|éducation|énergie|loyal|famille|appart|need a real job|water dogs|bully|pit bull/.test(
       reply
     );
 

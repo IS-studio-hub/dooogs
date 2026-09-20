@@ -45,21 +45,11 @@ function getSpeechRecognitionCtor(): (new () => BrowserRec) | null {
   return w.SpeechRecognition || w.webkitSpeechRecognition || null;
 }
 
-let sttAvailableCache: boolean | null = null;
+let sttAvailableCache: boolean | null = false; // require a successful STT before trusting Whisper
 
 async function probeSttAvailable(): Promise<boolean> {
   if (sttAvailableCache !== null) return sttAvailableCache;
-  try {
-    // Tiny empty probe — 404/405/502 means Whisper route isn’t live
-    const res = await fetch(apiUrl("/api/stt"), {
-      method: "OPTIONS",
-    });
-    // OPTIONS should 204 if worker is updated; older workers may 404
-    sttAvailableCache = res.ok || res.status === 204;
-  } catch {
-    sttAvailableCache = false;
-  }
-  return sttAvailableCache;
+  return false;
 }
 
 export function DooogsAskBar({
@@ -194,55 +184,51 @@ export function DooogsAskBar({
     const rec = new Ctor();
     rec.lang = locale === "fr" ? "fr-FR" : "en-US";
     rec.interimResults = true;
-    rec.continuous = false;
-    rec.maxAlternatives = 1;
+    // Keep listening until the user taps stop — fewer cut-off / wrong takes
+    rec.continuous = true;
+    rec.maxAlternatives = 3;
+
+    let finals = "";
 
     rec.onresult = (ev) => {
-      let finalText = "";
       let interim = "";
       const len = (ev.results as unknown as { length: number }).length;
       for (let i = 0; i < len; i++) {
         const row = ev.results[i];
         const piece = row?.[0]?.transcript ?? "";
-        if (row?.isFinal) finalText += piece;
-        else interim += piece;
+        if (row?.isFinal) {
+          if (piece && !finals.includes(piece)) {
+            finals = `${finals} ${piece}`.replace(/\s+/g, " ").trim();
+          }
+        } else {
+          interim += piece;
+        }
       }
-      const next = (finalText || interim).trim();
+      const next = (finals || interim).trim();
       if (next) setValue(next);
-      if (finalText.trim() && !submittedRef.current) {
-        submittedRef.current = true;
-        browserRecRef.current = null;
-        onListeningChange(false);
-        const text = finalText.trim();
-        setValue(text);
-        onSubmit(text, { fromMic: true });
-        setValue("");
-      }
     };
 
     rec.onerror = (ev) => {
+      const err = ev?.error || "";
+      // continuous mode often fires "no-speech" between phrases — ignore
+      if (err === "no-speech" || err === "aborted") return;
+
       browserRecRef.current = null;
       onListeningChange(false);
-      const err = ev?.error || "";
+
       if (err === "not-allowed" || err === "service-not-allowed") {
         notice(
           locale === "fr"
             ? "Autorise le micro dans le navigateur, ou tape ta question."
             : "Allow microphone access, or type your question."
         );
-      } else if (err === "no-speech") {
-        notice(
-          locale === "fr"
-            ? "Je n’ai rien entendu — réessaie."
-            : "I didn’t hear anything — try again."
-        );
       } else if (err === "network") {
         notice(
           locale === "fr"
-            ? "Réseau micro indisponible — tape ta question."
-            : "Mic network error — please type your question."
+            ? "Reconnaissance vocale indisponible (réseau) — tape ta question."
+            : "Speech recognition needs network — please type your question."
         );
-      } else if (err && err !== "aborted") {
+      } else if (err) {
         notice(
           locale === "fr"
             ? "Micro en erreur — tape ta question."
@@ -252,10 +238,19 @@ export function DooogsAskBar({
     };
 
     rec.onend = () => {
+      // If still marked listening, the engine auto-stopped — restart once
+      if (browserRecRef.current === rec && !submittedRef.current) {
+        try {
+          rec.start();
+          return;
+        } catch {
+          /* fall through to submit */
+        }
+      }
       browserRecRef.current = null;
       onListeningChange(false);
-      const draft = valueRef.current.trim();
-      if (!submittedRef.current && draft) {
+      const draft = (finals || valueRef.current).trim();
+      if (!submittedRef.current && draft.length >= 2) {
         submittedRef.current = true;
         onSubmit(draft, { fromMic: true });
         setValue("");
@@ -328,12 +323,12 @@ export function DooogsAskBar({
   async function startListening() {
     unlockDooogsAudio();
 
-    // 1) Prefer browser speech recognition when available (works without Worker STT)
+    // Prefer browser speech recognition (works without paid Whisper)
     if (getSpeechRecognitionCtor()) {
       if (startWebSpeech()) return;
     }
 
-    // 2) MediaRecorder + Whisper when STT is live (needed on iOS Safari)
+    // iOS Safari / no Web Speech: MediaRecorder + Whisper when available
     const sttOk = await probeSttAvailable();
     if (sttOk) {
       try {
@@ -353,14 +348,15 @@ export function DooogsAskBar({
 
     notice(
       locale === "fr"
-        ? "Micro non supporté ici — tape ta question."
-        : "Microphone not supported here — please type your question."
+        ? "Micro non supporté ici — tape ta question (Chrome/Edge recommandés pour la voix)."
+        : "Microphone not supported here — please type (Chrome/Edge work best for voice)."
     );
   }
 
   function stopListening() {
     if (browserRecRef.current) {
       const draft = valueRef.current.trim();
+      submittedRef.current = true;
       try {
         browserRecRef.current.stop();
       } catch {
@@ -372,10 +368,15 @@ export function DooogsAskBar({
       }
       browserRecRef.current = null;
       onListeningChange(false);
-      if (draft && !submittedRef.current) {
-        submittedRef.current = true;
+      if (draft.length >= 2) {
         onSubmit(draft, { fromMic: true });
         setValue("");
+      } else {
+        notice(
+          locale === "fr"
+            ? "Je n’ai rien entendu — réessaie."
+            : "I didn’t hear anything — try again."
+        );
       }
       return;
     }

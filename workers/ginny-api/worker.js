@@ -10,7 +10,13 @@ const ALLOWED_ORIGINS = [
   "http://127.0.0.1:3000",
 ];
 
-const WORKERS_AI_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
+const WORKERS_AI_MODELS = [
+  "@cf/meta/llama-3.1-8b-instruct-fp8-fast",
+  "@cf/meta/llama-3.2-1b-instruct",
+  "@cf/meta/llama-4-scout-17b-16e-instruct",
+  "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+];
+const WORKERS_AI_MODEL = WORKERS_AI_MODELS[0];
 const WHISPER_MODEL = "@cf/openai/whisper";
 // Optional secondary Ollama — Workers AI is primary for all devices
 const DEFAULT_OLLAMA_BASE_URL = "";
@@ -322,24 +328,37 @@ async function chatViaWorkersAI(cleaned, locale, env) {
 
   const lastUser = cleaned[cleaned.length - 1]?.content || "";
   const system = buildSystem(locale, lastUser);
-  const result = await env.AI.run(WORKERS_AI_MODEL, {
-    messages: [{ role: "system", content: system }, ...cleaned],
-    max_tokens: 550,
-    temperature: 0.45,
-  });
+  const errors = [];
 
-  const raw =
-    (typeof result === "string" ? result : result?.response || result?.result?.response || "")
-      .toString()
-      .trim();
-  if (!raw) throw new Error("workers_ai_empty");
+  for (const model of WORKERS_AI_MODELS) {
+    try {
+      const result = await env.AI.run(model, {
+        messages: [{ role: "system", content: system }, ...cleaned],
+        max_tokens: 550,
+        temperature: 0.45,
+      });
 
-  const parsed = parseReplyAndSuggestions(raw);
-  return {
-    reply: parsed.reply,
-    suggestions: parsed.suggestions.length ? parsed.suggestions : defaultSuggestions(locale),
-    source: `workers-ai:${WORKERS_AI_MODEL}`,
-  };
+      const raw =
+        (typeof result === "string" ? result : result?.response || result?.result?.response || "")
+          .toString()
+          .trim();
+      if (!raw) {
+        errors.push(`${model}:empty`);
+        continue;
+      }
+
+      const parsed = parseReplyAndSuggestions(raw);
+      return {
+        reply: parsed.reply,
+        suggestions: parsed.suggestions.length ? parsed.suggestions : defaultSuggestions(locale),
+        source: `workers-ai:${model}`,
+      };
+    } catch (err) {
+      errors.push(`${model}:${err instanceof Error ? err.message.slice(0, 120) : "fail"}`);
+    }
+  }
+
+  throw new Error(errors.join(" | ").slice(0, 280) || "workers_ai_failed");
 }
 
 async function handleChat(req, env) {
@@ -388,14 +407,16 @@ async function handleChat(req, env) {
     return false;
   }
 
+  const errors = [];
   try {
     // Primary: Workers AI (same on every device)
     try {
       const ai = await chatViaWorkersAI(cleaned, locale, env);
       if (ai?.reply && !isWeak(ai.reply)) return json(req, ai);
       if (ai?.reply) return json(req, ai);
-    } catch {
-      /* try ollama / offline */
+      errors.push("workers_ai_weak_or_empty");
+    } catch (err) {
+      errors.push(err instanceof Error ? err.message.slice(0, 180) : "workers_ai_failed");
     }
 
     // Optional secondary Ollama if configured
@@ -403,12 +424,13 @@ async function handleChat(req, env) {
       const ollama = await chatViaOllama(cleaned, locale, env);
       if (ollama?.reply && !isWeak(ollama.reply)) return json(req, ollama);
       if (ollama?.reply) return json(req, ollama);
-    } catch {
-      /* offline */
+      if (env.OLLAMA_BASE_URL) errors.push("ollama_weak_or_empty");
+    } catch (err) {
+      errors.push(err instanceof Error ? err.message.slice(0, 180) : "ollama_failed");
     }
 
     const offline = offlineDogReply(lastUser, locale);
-    return json(req, { ...offline, source: "offline_fallback" });
+    return json(req, { ...offline, source: "offline_fallback", detail: errors.join(" | ").slice(0, 300) });
   } catch (err) {
     const offline = offlineDogReply(lastUser, locale);
     return json(req, {

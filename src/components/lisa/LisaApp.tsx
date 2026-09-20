@@ -135,7 +135,6 @@ export function LisaApp({
       if (!opts?.force && mutedRef.current) return;
       const clean = sanitizeDialogHtml(html);
       if (!clean || clean === "…" || /thinking…|je réfléchis/i.test(clean)) return;
-      unlockDooogsAudio();
       voiceStopRef.current?.();
       const ambient = audioRef.current;
       const { stop } = speakDooogs(clean, locale, {
@@ -194,8 +193,9 @@ export function LisaApp({
       try {
         let reply = "";
         let suggestions: string[] | null = null;
+        let fromLiveAi = false;
 
-        // Single path for all devices: Cloudflare Worker (Workers AI)
+        // Cloudflare Worker (Workers AI when available)
         try {
           const res = await fetch(apiUrl("/api/chat"), {
             method: "POST",
@@ -206,8 +206,14 @@ export function LisaApp({
             const data = (await res.json()) as {
               reply?: string;
               suggestions?: string[];
+              source?: string;
             };
             reply = data.reply?.trim() || "";
+            fromLiveAi = Boolean(
+              reply &&
+                data.source &&
+                !data.source.startsWith("offline")
+            );
             if (Array.isArray(data.suggestions) && data.suggestions.length) {
               suggestions = data.suggestions;
             }
@@ -216,11 +222,18 @@ export function LisaApp({
           /* fall through to offline */
         }
 
-        // Last resort: local breed knowledge (uses history for follow-ups)
-        if (!reply || isWeakDogReply(text, reply)) {
+        // Prefer rich local knowledge when AI is offline / thin / missing
+        if (!fromLiveAi || !reply || isWeakDogReply(text, reply)) {
           const offline = offlineDogReply(text, locale, nextMessages);
-          reply = offline.reply;
-          suggestions = offline.suggestions;
+          if (
+            !reply ||
+            !fromLiveAi ||
+            isWeakDogReply(text, reply) ||
+            offline.reply.length > reply.length + 40
+          ) {
+            reply = offline.reply;
+            suggestions = offline.suggestions;
+          }
         }
 
         setChatMessages((m) => [...m, { role: "assistant", content: reply }]);

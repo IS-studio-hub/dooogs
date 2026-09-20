@@ -8,7 +8,6 @@ const SILENT_WAV =
 let sharedAudio: HTMLAudioElement | null = null;
 let unlockAudio: HTMLAudioElement | null = null;
 let audioUnlocked = false;
-let unlockGeneration = 0;
 
 export function stripDialogHtml(html: string): string {
   return html
@@ -76,74 +75,51 @@ function getUnlockAudio(): HTMLAudioElement {
 /** Call from a click/tap/send gesture so later speech is allowed. */
 export function unlockDooogsAudio(): void {
   if (typeof window === "undefined") return;
-  const gen = ++unlockGeneration;
+  audioUnlocked = true;
 
   try {
-    // Dedicated element — never touches the TTS player
     const audio = getUnlockAudio();
     audio.src = SILENT_WAV;
     audio.volume = 0.01;
-    const p = audio.play();
-    if (p && typeof p.then === "function") {
-      void p
-        .then(() => {
-          if (gen !== unlockGeneration) return;
-          audio.pause();
-          audio.currentTime = 0;
-          audioUnlocked = true;
-        })
-        .catch(() => {
-          audioUnlocked = true;
-        });
-    } else {
-      audioUnlocked = true;
-    }
+    void audio.play().then(
+      () => {
+        audio.pause();
+        audio.currentTime = 0;
+      },
+      () => undefined
+    );
   } catch {
-    audioUnlocked = true;
+    /* ignore */
   }
 
-  // Also prime the shared TTS element inside the gesture
   try {
     const tts = getSharedAudio();
-    tts.src = SILENT_WAV;
-    tts.volume = 0.01;
-    const p = tts.play();
-    if (p && typeof p.then === "function") {
-      void p
-        .then(() => {
-          // Only reset if we are still on the unlock clip
-          if (tts.src === SILENT_WAV || tts.src.startsWith("data:audio/wav")) {
+    // Only prime if idle — never clobber an in-flight reply
+    if (tts.paused || !tts.src || tts.src.startsWith("data:")) {
+      tts.src = SILENT_WAV;
+      tts.volume = 0.01;
+      void tts.play().then(
+        () => {
+          if (tts.src.startsWith("data:audio/wav")) {
             tts.pause();
             tts.currentTime = 0;
             tts.volume = 1;
           }
-          audioUnlocked = true;
-        })
-        .catch(() => {
-          audioUnlocked = true;
-        });
+        },
+        () => undefined
+      );
     }
   } catch {
-    audioUnlocked = true;
+    /* ignore */
   }
 
   try {
-    if (window.speechSynthesis) {
-      window.speechSynthesis.cancel();
+    if (window.speechSynthesis && !window.speechSynthesis.speaking) {
       const warm = new SpeechSynthesisUtterance(" ");
       warm.volume = 0;
       warm.rate = 2;
       warm.lang = "en-US";
       window.speechSynthesis.speak(warm);
-      window.setTimeout(() => {
-        try {
-          // Don't cancel if real speech already started
-          if (window.speechSynthesis.speaking) return;
-          window.speechSynthesis.cancel();
-        } catch {
-          /* ignore */
-        }
-      }, 80);
     }
   } catch {
     /* ignore */
@@ -193,7 +169,6 @@ function waitForVoices(): Promise<void> {
     window.speechSynthesis.addEventListener("voiceschanged", done, {
       once: true,
     });
-    // Kick Chrome to populate voices
     try {
       window.speechSynthesis.getVoices();
     } catch {
@@ -304,7 +279,7 @@ async function fetchTtsBlob(
   text: string,
   locale: Locale,
   signal: AbortSignal,
-  timeoutMs = 1800
+  timeoutMs = 8000
 ): Promise<Blob | null> {
   const timeout = new AbortController();
   const onAbort = () => timeout.abort();
@@ -333,8 +308,8 @@ async function fetchTtsBlob(
 
 /**
  * Speak a Dooogs! reply.
- * Prefer shared TTS when it is ready before we start; otherwise speak with
- * the browser immediately. Never cancel working browser speech for a late TTS.
+ * Prefer shared MP3 TTS (works across devices once unlocked);
+ * fall back to browser speech if TTS is slow or fails.
  */
 export function speakDooogs(
   html: string,
@@ -375,12 +350,7 @@ export function speakDooogs(
   const done = (async () => {
     if (!text || signal.stopped) return;
 
-    // Short TTS window only — if not ready, browser speaks (never interrupt it)
-    const blob = await Promise.race([
-      fetchTtsBlob(text, locale, abort.signal, 900),
-      new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 350)),
-    ]);
-
+    const blob = await fetchTtsBlob(text, locale, abort.signal, 6000);
     if (blob && !signal.stopped) {
       const played = await speakWithSharedMp3(blob, signal, {
         onStart: opts?.onStart,
