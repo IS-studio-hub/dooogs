@@ -3,7 +3,6 @@
 import clsx from "clsx";
 import { useEffect, useRef, useState } from "react";
 import type { Locale } from "@/lib/lisa-types";
-import { apiUrl } from "@/lib/api-url";
 import { unlockDooogsAudio } from "@/lib/dooogs-voice";
 
 type BrowserRec = {
@@ -14,6 +13,7 @@ type BrowserRec = {
   onresult: ((ev: {
     results: {
       [i: number]: { [j: number]: { transcript: string }; isFinal: boolean };
+      length: number;
     };
   }) => void) | null;
   onerror: ((ev: { error?: string }) => void) | null;
@@ -22,19 +22,6 @@ type BrowserRec = {
   stop: () => void;
   abort: () => void;
 };
-
-function pickRecorderMime(): string {
-  if (typeof MediaRecorder === "undefined") return "";
-  const candidates = [
-    "audio/webm;codecs=opus",
-    "audio/webm",
-    "audio/mp4",
-    "audio/aac",
-    "audio/ogg;codecs=opus",
-    "audio/ogg",
-  ];
-  return candidates.find((t) => MediaRecorder.isTypeSupported(t)) || "";
-}
 
 function getSpeechRecognitionCtor(): (new () => BrowserRec) | null {
   if (typeof window === "undefined") return null;
@@ -45,42 +32,48 @@ function getSpeechRecognitionCtor(): (new () => BrowserRec) | null {
   return w.SpeechRecognition || w.webkitSpeechRecognition || null;
 }
 
-let sttAvailableCache: boolean | null = false; // require a successful STT before trusting Whisper
-
-async function probeSttAvailable(): Promise<boolean> {
-  if (sttAvailableCache !== null) return sttAvailableCache;
-  return false;
-}
+/** End-of-turn silence before we send (ElevenLabs-style). */
+const END_OF_TURN_MS = 1100;
 
 export function DooogsAskBar({
   locale,
   disabled,
-  listening,
-  onListeningChange,
+  conversation,
+  onConversationChange,
+  listenEpoch,
   onSubmit,
   onNotice,
+  onInterrupt,
   placeholder,
 }: {
   locale: Locale;
+  /** True while Dooogs is thinking or speaking — mic pauses, conversation stays on */
   disabled?: boolean;
-  listening: boolean;
-  onListeningChange: (v: boolean) => void;
+  conversation: boolean;
+  onConversationChange: (v: boolean) => void;
+  /** Bump after Dooogs finishes speaking to resume listening */
+  listenEpoch: number;
   onSubmit: (text: string, meta?: { fromMic?: boolean }) => void;
   onNotice?: (message: string) => void;
+  /** Barge-in: stop Dooogs' voice when the user starts talking again */
+  onInterrupt?: () => void;
   placeholder?: string;
 }) {
   const [value, setValue] = useState("");
-  const [transcribing, setTranscribing] = useState(false);
+  const [hearing, setHearing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const valueRef = useRef("");
-  const mediaRef = useRef<MediaRecorder | null>(null);
   const browserRecRef = useRef<BrowserRec | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const streamRef = useRef<MediaStream | null>(null);
-  const maxTimerRef = useRef<number | null>(null);
-  const submittedRef = useRef(false);
-  const hasText = value.trim().length > 0;
-  const busy = Boolean(disabled || transcribing);
+  const conversationRef = useRef(conversation);
+  const disabledRef = useRef(Boolean(disabled));
+  const turnTimerRef = useRef<number | null>(null);
+  const finalsRef = useRef("");
+  const submittingRef = useRef(false);
+  const wantListenRef = useRef(false);
+  const hasText = value.trim().length > 0 && !conversation;
+
+  conversationRef.current = conversation;
+  disabledRef.current = Boolean(disabled);
 
   useEffect(() => {
     valueRef.current = value;
@@ -88,338 +81,266 @@ export function DooogsAskBar({
 
   useEffect(() => {
     return () => {
-      teardownRecorder();
-      try {
-        browserRecRef.current?.abort();
-      } catch {
-        /* ignore */
-      }
+      clearTurnTimer();
+      hardStopRec();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Pause recognition while thinking/speaking; resume when listenEpoch bumps
+  useEffect(() => {
+    if (disabled) {
+      pauseRec();
+      return;
+    }
+    if (conversationRef.current && wantListenRef.current) {
+      startConversationListen();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [disabled, listenEpoch]);
 
   function notice(msg: string) {
     onNotice?.(msg);
   }
 
-  function teardownRecorder() {
-    if (maxTimerRef.current) {
-      window.clearTimeout(maxTimerRef.current);
-      maxTimerRef.current = null;
+  function clearTurnTimer() {
+    if (turnTimerRef.current) {
+      window.clearTimeout(turnTimerRef.current);
+      turnTimerRef.current = null;
     }
+  }
+
+  function hardStopRec() {
+    clearTurnTimer();
+    const rec = browserRecRef.current;
+    browserRecRef.current = null;
+    setHearing(false);
+    if (!rec) return;
     try {
-      mediaRef.current?.stop();
+      rec.onend = null;
+      rec.onresult = null;
+      rec.onerror = null;
+      rec.abort();
     } catch {
-      /* ignore */
+      try {
+        rec.stop();
+      } catch {
+        /* ignore */
+      }
     }
-    mediaRef.current = null;
-    streamRef.current?.getTracks().forEach((t) => t.stop());
-    streamRef.current = null;
-    chunksRef.current = [];
   }
 
-  async function transcribeBlob(blob: Blob): Promise<string | null> {
-    const form = new FormData();
-    const ext =
-      blob.type.includes("mp4") || blob.type.includes("aac") ? "m4a" : "webm";
-    form.append("audio", blob, `dooogs-mic.${ext}`);
-    form.append("locale", locale);
-
-    const res = await fetch(apiUrl("/api/stt"), {
-      method: "POST",
-      body: form,
-    });
-    if (!res.ok) {
-      sttAvailableCache = false;
-      return null;
+  function pauseRec() {
+    clearTurnTimer();
+    const rec = browserRecRef.current;
+    browserRecRef.current = null;
+    setHearing(false);
+    if (!rec) return;
+    try {
+      rec.onend = null;
+      rec.onresult = null;
+      rec.onerror = null;
+      rec.stop();
+    } catch {
+      try {
+        rec.abort();
+      } catch {
+        /* ignore */
+      }
     }
-    sttAvailableCache = true;
-    const data = (await res.json()) as { text?: string };
-    return data.text?.trim() || null;
   }
 
-  async function finishRecording(blob: Blob | null) {
-    teardownRecorder();
-    onListeningChange(false);
+  function scheduleEndOfTurn() {
+    clearTurnTimer();
+    turnTimerRef.current = window.setTimeout(() => {
+      turnTimerRef.current = null;
+      const draft = finalsRef.current.trim() || valueRef.current.trim();
+      if (draft.length < 2) return;
+      if (submittingRef.current || disabledRef.current) return;
+      submittingRef.current = true;
+      pauseRec();
+      setValue("");
+      finalsRef.current = "";
+      onSubmit(draft, { fromMic: true });
+      // Parent will bump listenEpoch after voice ends
+      window.setTimeout(() => {
+        submittingRef.current = false;
+      }, 400);
+    }, END_OF_TURN_MS);
+  }
 
-    if (!blob || blob.size < 800) {
+  function startConversationListen() {
+    if (disabledRef.current || !conversationRef.current) return;
+    if (browserRecRef.current) return;
+
+    const Ctor = getSpeechRecognitionCtor();
+    if (!Ctor) {
       notice(
         locale === "fr"
-          ? "Je n’ai rien entendu — réessaie ou tape ta question."
-          : "I didn’t catch that — try again or type your question."
+          ? "Conversation vocale: utilise Chrome ou Edge."
+          : "Voice conversation needs Chrome or Edge."
       );
+      endConversation();
       return;
     }
 
-    setTranscribing(true);
-    try {
-      const text = await transcribeBlob(blob);
-      if (!text) {
-        notice(
-          locale === "fr"
-            ? "Je n’ai pas compris — réessaie ou tape ta question."
-            : "Couldn’t understand that — try again or type your question."
-        );
-        return;
-      }
-      setValue(text);
-      onSubmit(text, { fromMic: true });
-      setValue("");
-    } catch {
-      notice(
-        locale === "fr"
-          ? "Micro en erreur — tape ta question."
-          : "Mic error — please type your question."
-      );
-    } finally {
-      setTranscribing(false);
-    }
-  }
+    unlockDooogsAudio();
+    wantListenRef.current = true;
+    finalsRef.current = "";
+    submittingRef.current = false;
 
-  function startWebSpeech() {
-    const Ctor = getSpeechRecognitionCtor();
-    if (!Ctor) return false;
-
-    submittedRef.current = false;
     const rec = new Ctor();
     rec.lang = locale === "fr" ? "fr-FR" : "en-US";
     rec.interimResults = true;
-    // Push-to-talk: one utterance, user taps stop to send (mobile-friendly)
-    rec.continuous = false;
-    rec.maxAlternatives = 3;
-
-    let finals = "";
+    rec.continuous = true;
+    rec.maxAlternatives = 2;
 
     rec.onresult = (ev) => {
+      if (disabledRef.current || !conversationRef.current) return;
+
       let interim = "";
-      const len = (ev.results as unknown as { length: number }).length;
-      for (let i = 0; i < len; i++) {
+      let gotFinal = false;
+      for (let i = 0; i < ev.results.length; i++) {
         const row = ev.results[i];
         const piece = row?.[0]?.transcript ?? "";
         if (row?.isFinal) {
-          if (piece) finals = `${finals} ${piece}`.replace(/\s+/g, " ").trim();
+          if (piece) {
+            finalsRef.current = `${finalsRef.current} ${piece}`
+              .replace(/\s+/g, " ")
+              .trim();
+            gotFinal = true;
+          }
         } else {
           interim += piece;
         }
       }
-      const next = (finals || interim).trim();
-      if (next) setValue(next);
+
+      const next = (finalsRef.current || interim).trim();
+      if (next) {
+        // Barge-in: user started talking over Dooogs
+        if (interim || gotFinal) onInterrupt?.();
+        setValue(next);
+      }
+      if (gotFinal || finalsRef.current) scheduleEndOfTurn();
     };
 
     rec.onerror = (ev) => {
       const err = ev?.error || "";
-      if (err === "no-speech" || err === "aborted") {
-        browserRecRef.current = null;
-        onListeningChange(false);
-        return;
-      }
-
-      browserRecRef.current = null;
-      onListeningChange(false);
+      // Keep conversation alive through no-speech gaps
+      if (err === "no-speech" || err === "aborted") return;
 
       if (err === "not-allowed" || err === "service-not-allowed") {
         notice(
           locale === "fr"
-            ? "Autorise le micro dans le navigateur, ou tape ta question."
+            ? "Autorise le micro, ou tape ta question."
             : "Allow microphone access, or type your question."
         );
-      } else if (err === "network") {
+        endConversation();
+        return;
+      }
+      if (err === "network") {
         notice(
           locale === "fr"
-            ? "Reconnaissance vocale indisponible — tape ta question (Chrome/Edge recommandés)."
-            : "Speech recognition needs network — please type (Chrome/Edge work best)."
+            ? "Réseau micro indisponible — tape ta question."
+            : "Mic network error — please type your question."
         );
-      } else if (err) {
-        notice(
-          locale === "fr"
-            ? "Micro en erreur — tape ta question."
-            : "Mic error — please type your question."
-        );
+        endConversation();
       }
     };
 
     rec.onend = () => {
       browserRecRef.current = null;
-      onListeningChange(false);
-      const draft = (finals || valueRef.current).trim();
-      // Auto-send when the engine ends a phrase (desktop); mobile users can tap stop earlier
-      if (!submittedRef.current && draft.length >= 2) {
-        submittedRef.current = true;
-        onSubmit(draft, { fromMic: true });
-        setValue("");
+      setHearing(false);
+      // Auto-restart while conversation is live and we're not paused
+      if (
+        conversationRef.current &&
+        wantListenRef.current &&
+        !disabledRef.current &&
+        !submittingRef.current
+      ) {
+        window.setTimeout(() => {
+          if (
+            conversationRef.current &&
+            wantListenRef.current &&
+            !disabledRef.current
+          ) {
+            startConversationListen();
+          }
+        }, 180);
       }
     };
 
     browserRecRef.current = rec;
-    onListeningChange(true);
+    setHearing(true);
     try {
       rec.start();
-      return true;
     } catch {
       browserRecRef.current = null;
-      onListeningChange(false);
-      return false;
-    }
-  }
-
-  async function startMediaRecorder() {
-    if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
-      return false;
-    }
-    if (typeof MediaRecorder === "undefined") return false;
-
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
-      },
-    });
-    streamRef.current = stream;
-    const mime = pickRecorderMime();
-    const recorder = mime
-      ? new MediaRecorder(stream, { mimeType: mime })
-      : new MediaRecorder(stream);
-    chunksRef.current = [];
-    recorder.ondataavailable = (ev) => {
-      if (ev.data.size > 0) chunksRef.current.push(ev.data);
-    };
-    recorder.onstop = () => {
-      const type = recorder.mimeType || mime || "audio/webm";
-      const blob = new Blob(chunksRef.current, { type });
-      void finishRecording(blob);
-    };
-    recorder.onerror = () => {
-      teardownRecorder();
-      onListeningChange(false);
-      notice(
-        locale === "fr"
-          ? "Erreur micro — tape ta question."
-          : "Mic error — please type your question."
-      );
-    };
-    mediaRef.current = recorder;
-    recorder.start(250);
-    onListeningChange(true);
-    maxTimerRef.current = window.setTimeout(() => {
-      if (mediaRef.current?.state === "recording") {
-        try {
-          mediaRef.current.stop();
-        } catch {
-          /* ignore */
+      setHearing(false);
+      window.setTimeout(() => {
+        if (conversationRef.current && !disabledRef.current) {
+          startConversationListen();
         }
-      }
-    }, 12_000);
-    return true;
+      }, 320);
+    }
   }
 
-  async function startListening() {
+  function endConversation() {
+    wantListenRef.current = false;
+    conversationRef.current = false;
+    clearTurnTimer();
+    hardStopRec();
+    finalsRef.current = "";
+    setValue("");
+    onConversationChange(false);
+  }
+
+  function beginConversation() {
     unlockDooogsAudio();
-
-    // Prefer browser speech recognition (works without paid Whisper)
-    if (getSpeechRecognitionCtor()) {
-      if (startWebSpeech()) return;
-    }
-
-    // iOS Safari / no Web Speech: MediaRecorder + Whisper when available
-    const sttOk = await probeSttAvailable();
-    if (sttOk) {
-      try {
-        if (await startMediaRecorder()) return;
-      } catch (err) {
-        const name = err instanceof DOMException ? err.name : "";
-        if (name === "NotAllowedError" || name === "PermissionDeniedError") {
-          notice(
-            locale === "fr"
-              ? "Autorise le micro dans le navigateur, ou tape ta question."
-              : "Allow microphone access, or type your question."
-          );
-          return;
-        }
-      }
-    }
-
-    notice(
-      locale === "fr"
-        ? "Micro non supporté ici — tape ta question (Chrome/Edge recommandés pour la voix)."
-        : "Microphone not supported here — please type (Chrome/Edge work best for voice)."
-    );
+    onInterrupt?.();
+    wantListenRef.current = true;
+    conversationRef.current = true; // don't wait for parent re-render
+    onConversationChange(true);
+    window.setTimeout(() => startConversationListen(), 0);
   }
 
-  function stopListening() {
-    if (browserRecRef.current) {
-      const draft = valueRef.current.trim();
-      submittedRef.current = true;
-      try {
-        browserRecRef.current.stop();
-      } catch {
-        try {
-          browserRecRef.current.abort();
-        } catch {
-          /* ignore */
-        }
-      }
-      browserRecRef.current = null;
-      onListeningChange(false);
-      if (draft.length >= 2) {
-        onSubmit(draft, { fromMic: true });
-        setValue("");
-      } else {
-        notice(
-          locale === "fr"
-            ? "Je n’ai rien entendu — réessaie."
-            : "I didn’t hear anything — try again."
-        );
-      }
+  function toggleConversation() {
+    if (conversation) endConversation();
+    else beginConversation();
+  }
+
+  function sendTyped() {
+    const text = value.trim();
+    if (!text || disabled) return;
+    unlockDooogsAudio();
+    if (conversation) {
+      // Typed send while in conversation — treat as a turn, stay in mode
+      pauseRec();
+      setValue("");
+      finalsRef.current = "";
+      onSubmit(text, { fromMic: true });
       return;
     }
-    if (maxTimerRef.current) {
-      window.clearTimeout(maxTimerRef.current);
-      maxTimerRef.current = null;
-    }
-    const rec = mediaRef.current;
-    if (rec && rec.state === "recording") {
-      try {
-        rec.stop();
-      } catch {
-        teardownRecorder();
-        onListeningChange(false);
-      }
-    } else {
-      teardownRecorder();
-      onListeningChange(false);
-    }
-  }
-
-  function toggleMic() {
-    if (busy) return;
-    if (listening) stopListening();
-    else void startListening();
-  }
-
-  function send() {
-    const text = value.trim();
-    if (!text || busy) return;
-    unlockDooogsAudio();
-    if (listening) stopListening();
     onSubmit(text);
     setValue("");
     inputRef.current?.focus();
   }
+
+  const live = conversation && (hearing || Boolean(disabled));
 
   return (
     <form
       className="c-dooogs-ask"
       onSubmit={(e) => {
         e.preventDefault();
-        if (hasText) send();
+        if (value.trim()) sendTyped();
       }}
     >
       <div
         className={clsx(
           "c-dooogs-ask_field",
-          listening && "-listening",
-          transcribing && "-transcribing"
+          live && "-listening",
+          conversation && disabled && "-transcribing"
         )}
       >
         <input
@@ -427,34 +348,30 @@ export function DooogsAskBar({
           type="text"
           className="c-dooogs-ask_input"
           value={value}
-          disabled={busy}
+          disabled={Boolean(disabled) && !conversation}
           placeholder={
-            transcribing
+            conversation && disabled
               ? locale === "fr"
-                ? "Je t’écoute…"
-                : "Hearing you…"
-              : listening
+                ? "Dooogs! répond…"
+                : "Dooogs! is answering…"
+              : conversation
                 ? locale === "fr"
-                  ? "Parle… appuie pour envoyer"
-                  : "Speak… tap to send"
+                  ? "Je t’écoute… parle naturellement"
+                  : "Listening… talk naturally"
                 : placeholder ||
                   (locale === "fr"
                     ? "Demande n’importe quoi sur les chiens…"
                     : "Ask anything about dogs…")
           }
-          onChange={(e) => {
-            const next = e.target.value;
-            if (next.trim() && listening) stopListening();
-            setValue(next);
-          }}
+          onChange={(e) => setValue(e.target.value)}
           aria-label={locale === "fr" ? "Ta question" : "Your question"}
         />
-        {hasText && !listening ? (
+        {hasText ? (
           <button
             type="submit"
             className="c-dooogs-ask_action -send"
             aria-label={locale === "fr" ? "Envoyer" : "Send"}
-            disabled={busy}
+            disabled={Boolean(disabled)}
           >
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path
@@ -470,21 +387,21 @@ export function DooogsAskBar({
         ) : (
           <button
             type="button"
-            className={clsx("c-dooogs-ask_action -mic", listening && "-on")}
+            className={clsx("c-dooogs-ask_action -mic", conversation && "-on")}
             aria-label={
-              listening
+              conversation
                 ? locale === "fr"
-                  ? "Arrêter et envoyer"
-                  : "Stop and send"
+                  ? "Arrêter la conversation"
+                  : "End conversation"
                 : locale === "fr"
-                  ? "Parler"
-                  : "Speak"
+                  ? "Conversation vocale"
+                  : "Voice conversation"
             }
-            disabled={busy}
-            onClick={toggleMic}
+            aria-pressed={conversation}
+            onClick={toggleConversation}
           >
             <svg viewBox="0 0 24 24" aria-hidden="true">
-              {listening ? (
+              {conversation ? (
                 <rect
                   x="7"
                   y="7"

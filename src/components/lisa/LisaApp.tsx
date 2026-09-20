@@ -45,7 +45,11 @@ export function LisaApp({
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [aiSuggestions, setAiSuggestions] = useState<string[] | null>(null);
   const [thinking, setThinking] = useState(false);
-  const [listening, setListening] = useState(false);
+  const [conversation, setConversation] = useState(false);
+  const [listenEpoch, setListenEpoch] = useState(0);
+  const [speaking, setSpeaking] = useState(false);
+  const conversationRef = useRef(false);
+  conversationRef.current = conversation;
   const [sheetOpen, setSheetOpen] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
   const voiceStopRef = useRef<(() => void) | null>(null);
@@ -74,7 +78,7 @@ export function LisaApp({
   }, [aiSuggestions, scriptChoices]);
 
   const media = useMemo(() => step?.media ?? [], [step?.media]);
-  const isCompact = Boolean(step?.isCompact) || thinking;
+  const isCompact = Boolean(step?.isCompact) || thinking || speaking;
   const progress = Math.min(
     0.95,
     (step?.progress ?? 0.2) + chatMessages.filter((m) => m.role === "user").length * 0.06
@@ -125,37 +129,51 @@ export function LisaApp({
   );
 
   const playVoice = useCallback(
-    (html: string, opts?: { force?: boolean }) => {
-      if (!opts?.force && mutedRef.current) return;
+    (html: string, opts?: { force?: boolean }): Promise<void> => {
+      if (!opts?.force && mutedRef.current) return Promise.resolve();
       const clean = sanitizeDialogHtml(html);
-      if (!clean || clean === "…" || /thinking…|je réfléchis/i.test(clean)) return;
+      if (!clean || clean === "…" || /thinking…|je réfléchis/i.test(clean)) {
+        return Promise.resolve();
+      }
       voiceStopRef.current?.();
       const ambient = audioRef.current;
-      const { stop } = speakDooogs(clean, locale, {
+      setSpeaking(true);
+      const { stop, done } = speakDooogs(clean, locale, {
         onStart: () => {
           if (ambient) ambient.volume = 0.06;
         },
         onEnd: () => {
           if (ambient && !mutedRef.current) ambient.volume = 0.28;
+          setSpeaking(false);
         },
       });
-      voiceStopRef.current = stop;
+      voiceStopRef.current = () => {
+        stop();
+        setSpeaking(false);
+      };
+      return done.finally(() => {
+        setSpeaking(false);
+      });
     },
     [locale]
   );
 
+  const stopVoice = useCallback(() => {
+    voiceStopRef.current?.();
+    voiceStopRef.current = null;
+    setSpeaking(false);
+  }, []);
+
   const askDog = useCallback(
-    async (userText: string, opts?: { fromMic?: boolean }) => {
+    async (userText: string, _opts?: { fromMic?: boolean }) => {
       const text = userText.trim();
       if (!text || askingRef.current) return;
-      // Ignore mic capability notices as real questions
       if (text.startsWith("(") && text.endsWith(")")) {
         setToast(text.replace(/^\(|\)$/g, ""));
         window.setTimeout(() => setToast(null), 3200);
         return;
       }
 
-      // User gesture path — unlock mobile audio and turn voice on for a live chat feel
       unlockDooogsAudio();
       mutedRef.current = false;
       setMuted(false);
@@ -170,7 +188,6 @@ export function LisaApp({
       ];
       setChatMessages(nextMessages);
 
-      // Park current line in history, show thinking
       if (dialogHtmlRef.current) {
         setHistory((h) => [
           ...h,
@@ -182,41 +199,48 @@ export function LisaApp({
       setTypingDone(false);
       setExpanded(false);
 
-      // Hard safety: never leave the UI locked if something hangs
       const safety = window.setTimeout(() => {
         askingRef.current = false;
         setThinking(false);
+        setSpeaking(false);
       }, 18_000);
 
+      let replyHtml = "";
       try {
         const turn = await runDogChatTurn(text, locale, chatMessages, {
           timeoutMs: 12_000,
         });
+        replyHtml = turn.reply;
         setChatMessages((m) => [
           ...m,
           { role: "assistant", content: turn.reply },
         ]);
         setAiSuggestions(turn.suggestions);
         showAssistantReply(turn.reply, { pushPrior: false });
-        // Voice must not block the next ask
-        try {
-          playVoice(turn.reply, { force: true });
-        } catch {
-          /* ignore */
-        }
       } catch {
         const offline = offlineDogReply(text, locale, nextMessages);
+        replyHtml = offline.reply;
         setChatMessages((m) => [
           ...m,
           { role: "assistant", content: offline.reply },
         ]);
         setAiSuggestions(offline.suggestions);
         showAssistantReply(offline.reply, { pushPrior: false });
-        playVoice(offline.reply, { force: true });
       } finally {
         window.clearTimeout(safety);
         setThinking(false);
         askingRef.current = false;
+      }
+
+      if (replyHtml) {
+        try {
+          await playVoice(replyHtml, { force: true });
+        } catch {
+          /* ignore */
+        }
+      }
+      if (conversationRef.current) {
+        window.setTimeout(() => setListenEpoch((n) => n + 1), 280);
       }
     },
     [chatMessages, locale, showAssistantReply, playVoice]
@@ -408,7 +432,7 @@ export function LisaApp({
       <LisaMedia
         media={displayMedia}
         muted={muted}
-        clip={typingDone && !thinking ? "idle" : "talk"}
+        clip={typingDone && !thinking && !speaking ? "idle" : "talk"}
       />
 
       <div className="c-lisa_main" onClick={handleSheetClick}>
@@ -435,9 +459,21 @@ export function LisaApp({
             {showAskBar ? (
               <DooogsAskBar
                 locale={locale}
-                disabled={thinking}
-                listening={listening}
-                onListeningChange={setListening}
+                disabled={thinking || speaking}
+                conversation={conversation}
+                onConversationChange={(v) => {
+                  setConversation(v);
+                  if (v) {
+                    setSheetOpen(true);
+                    unlockDooogsAudio();
+                    mutedRef.current = false;
+                    setMuted(false);
+                  } else {
+                    stopVoice();
+                  }
+                }}
+                listenEpoch={listenEpoch}
+                onInterrupt={stopVoice}
                 onSubmit={handleAskSubmit}
                 onNotice={(message) => {
                   setToast(message);
@@ -540,8 +576,7 @@ export function LisaApp({
             if (m && dialogHtmlRef.current && dialogHtmlRef.current !== "…") {
               playVoice(dialogHtmlRef.current, { force: true });
             } else if (!m) {
-              voiceStopRef.current?.();
-              voiceStopRef.current = null;
+              stopVoice();
             }
             return next;
           });

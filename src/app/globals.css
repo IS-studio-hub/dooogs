@@ -1048,6 +1048,17 @@ html:not(.has-menu-opened) .c-menu {
 .c-dooogs-ask_action.-mic.-on {
   background: var(--color);
   color: var(--color-bg);
+  animation: dooogs-mic-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes dooogs-mic-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color) 35%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 10px transparent;
+  }
 }
 
 .c-dooogs-ask_action:disabled {
