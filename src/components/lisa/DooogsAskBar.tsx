@@ -175,10 +175,19 @@ export function DooogsAskBar({
 
     const Ctor = getSpeechRecognitionCtor();
     if (!Ctor) {
+      const isIOS =
+        typeof navigator !== "undefined" &&
+        (/iPad|iPhone|iPod/i.test(navigator.userAgent) ||
+          (navigator.platform === "MacIntel" &&
+            (navigator.maxTouchPoints || 0) > 1));
       notice(
-        locale === "fr"
-          ? "Conversation vocale: utilise Chrome ou Edge."
-          : "Voice conversation needs Chrome or Edge."
+        isIOS
+          ? locale === "fr"
+            ? "Sur iPhone, tape ta question — Safari ne gère pas encore la conversation vocale continue."
+            : "On iPhone, please type your question — Safari doesn’t support continuous voice chat yet."
+          : locale === "fr"
+            ? "Conversation vocale: utilise Chrome ou Edge."
+            : "Voice conversation needs Chrome or Edge."
       );
       endConversation();
       return;

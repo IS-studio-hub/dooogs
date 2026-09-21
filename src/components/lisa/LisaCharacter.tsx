@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
@@ -25,6 +25,24 @@ type LookJoint = {
   /** 1 = full yaw, 0 = no left/right (neck-only turn). */
   yawScale: number;
 };
+
+
+function isMobileOrTabletDevice(): boolean {
+  if (typeof window === "undefined") return false;
+  const ua = navigator.userAgent || "";
+  const iPadDesktop =
+    navigator.platform === "MacIntel" && (navigator.maxTouchPoints || 0) > 1;
+  if (/iPad|iPhone|iPod|Android/i.test(ua) || iPadDesktop) return true;
+  return window.matchMedia("(hover: none) and (pointer: coarse)").matches;
+}
+
+function needsIosMotionPermission(): boolean {
+  if (typeof window === "undefined") return false;
+  const DOE = DeviceOrientationEvent as unknown as {
+    requestPermission?: () => Promise<"granted" | "denied">;
+  };
+  return typeof DOE.requestPermission === "function";
+}
 
 function findBone(root: THREE.Object3D, names: string[]): THREE.Bone | null {
   for (const name of names) {
@@ -56,6 +74,8 @@ export function LisaCharacter({
 }) {
   const mountRef = useRef<HTMLDivElement>(null);
   const clipRef = useRef<CharacterClip>(clip);
+  const enableMotionRef = useRef<(() => void) | null>(null);
+  const [showMotionPrompt, setShowMotionPrompt] = useState(false);
 
   useEffect(() => {
     clipRef.current = clip;
@@ -78,6 +98,7 @@ export function LisaCharacter({
     renderer.toneMappingExposure = 1.12;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.domElement.style.touchAction = "none";
     mount.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
@@ -304,16 +325,16 @@ export function LisaCharacter({
 
     let framePortraitFn: (() => void) | null = null;
 
-    // Phones + tablets only: device orientation. Desktop keeps mouse.
-    const useDeviceSensors =
-      typeof window !== "undefined" &&
-      (window.matchMedia("(hover: none) and (pointer: coarse)").matches ||
-        (/iPad|iPhone|iPod|Android/i.test(navigator.userAgent) &&
-          (navigator.maxTouchPoints || 0) > 0 &&
-          window.matchMedia("(hover: none)").matches));
-
-    // Baseline orientation so first reading = looking forward (not a jump)
+    const useDeviceSensors = isMobileOrTabletDevice();
     let orientBase: { beta: number; gamma: number } | null = null;
+    let orientListening = false;
+
+    // Touch-drag look — works on every iPhone even if motion is denied
+    let dragActive = false;
+    let dragOriginX = 0;
+    let dragOriginY = 0;
+    let dragBaseX = 0;
+    let dragBaseY = 0;
 
     const resize = () => {
       const w = mount.clientWidth || window.innerWidth;
@@ -337,8 +358,9 @@ export function LisaCharacter({
       stillFrames = 0;
     };
 
-    const onMove = (e: PointerEvent) => {
-      if (useDeviceSensors) return; // mobile/tablet: sensors only
+    const onMouseMove = (e: PointerEvent) => {
+      if (useDeviceSensors) return;
+      if (e.pointerType === "touch") return;
       const w = window.innerWidth || 1;
       const h = window.innerHeight || 1;
       pushLook((e.clientX / w) * 2 - 1, -((e.clientY / h) * 2 - 1));
@@ -346,59 +368,98 @@ export function LisaCharacter({
 
     const onDeviceOrient = (e: DeviceOrientationEvent) => {
       if (!useDeviceSensors || disposed) return;
-      // beta: front-back (-180..180), gamma: left-right (-90..90)
       const beta = e.beta;
       const gamma = e.gamma;
-      if (beta == null || gamma == null) return;
-
-      if (!orientBase) {
-        orientBase = { beta, gamma };
+      if (
+        beta == null ||
+        gamma == null ||
+        Number.isNaN(beta) ||
+        Number.isNaN(gamma)
+      ) {
+        return;
       }
 
-      // Delta from the pose when sensors started = where the user's face moved
+      if (!orientBase) orientBase = { beta, gamma };
+
       const dGamma = gamma - orientBase.gamma;
       const dBeta = beta - orientBase.beta;
-
-      // Map degrees → look NDC. Flip gamma so tilting phone right looks right.
-      // Holding phone upright: moving face/device left-right drives yaw.
-      const x = THREE.MathUtils.clamp(dGamma / 28, -1, 1);
-      const y = THREE.MathUtils.clamp(-dBeta / 36, -1, 1);
+      const x = THREE.MathUtils.clamp(dGamma / 22, -1, 1);
+      const y = THREE.MathUtils.clamp(-dBeta / 30, -1, 1);
       pushLook(x, y);
     };
 
-    const requestOrientPermission = async () => {
-      if (!useDeviceSensors) return;
+    const startOrientationListening = () => {
+      if (orientListening || disposed) return;
+      orientListening = true;
+      orientBase = null;
+      window.addEventListener("deviceorientation", onDeviceOrient, true);
+      setShowMotionPrompt(false);
+    };
+
+    // MUST call requestPermission directly from the button click (iOS Safari)
+    enableMotionRef.current = () => {
       const DOE = DeviceOrientationEvent as unknown as {
         requestPermission?: () => Promise<"granted" | "denied">;
       };
-      try {
-        if (typeof DOE.requestPermission === "function") {
-          const res = await DOE.requestPermission();
-          if (res !== "granted") return;
-        }
-      } catch {
-        /* continue — many Androids don't need this */
+      if (typeof DOE.requestPermission === "function") {
+        void DOE.requestPermission()
+          .then((res) => {
+            if (res === "granted") startOrientationListening();
+            else setShowMotionPrompt(false);
+          })
+          .catch(() => setShowMotionPrompt(false));
+        return;
       }
-      // Re-bind after iOS grant (safe if already listening)
-      window.removeEventListener("deviceorientation", onDeviceOrient, true);
-      window.addEventListener("deviceorientation", onDeviceOrient, true);
-      orientBase = null; // recalibrate facing the user after permission
+      startOrientationListening();
     };
 
-    // iOS requires a user gesture — hook the first tap/touch anywhere
-    const onFirstGesture = () => {
-      void requestOrientPermission();
-      window.removeEventListener("pointerdown", onFirstGesture);
-      window.removeEventListener("touchstart", onFirstGesture);
+    const onDragDown = (e: PointerEvent) => {
+      if (!useDeviceSensors) return;
+      if (e.target !== renderer.domElement) return;
+      dragActive = true;
+      dragOriginX = e.clientX;
+      dragOriginY = e.clientY;
+      dragBaseX = lookNdc.x;
+      dragBaseY = lookNdc.y;
+      try {
+        renderer.domElement.setPointerCapture(e.pointerId);
+      } catch {
+        /* ignore */
+      }
+    };
+
+    const onDragMove = (e: PointerEvent) => {
+      if (!dragActive) return;
+      const w = Math.max(window.innerWidth, 1);
+      const h = Math.max(window.innerHeight, 1);
+      const dx = ((e.clientX - dragOriginX) / w) * 2.4;
+      const dy = ((e.clientY - dragOriginY) / h) * 2.4;
+      pushLook(dragBaseX + dx, dragBaseY - dy);
+    };
+
+    const onDragUp = (e: PointerEvent) => {
+      if (!dragActive) return;
+      dragActive = false;
+      try {
+        renderer.domElement.releasePointerCapture(e.pointerId);
+      } catch {
+        /* ignore */
+      }
     };
 
     if (useDeviceSensors) {
-      // Android usually works immediately; iOS unlocks on first tap
-      window.addEventListener("deviceorientation", onDeviceOrient, true);
-      window.addEventListener("pointerdown", onFirstGesture, { once: true });
-      window.addEventListener("touchstart", onFirstGesture, { once: true });
+      renderer.domElement.addEventListener("pointerdown", onDragDown);
+      renderer.domElement.addEventListener("pointermove", onDragMove);
+      renderer.domElement.addEventListener("pointerup", onDragUp);
+      renderer.domElement.addEventListener("pointercancel", onDragUp);
+
+      if (needsIosMotionPermission()) {
+        setShowMotionPrompt(true);
+      } else {
+        startOrientationListening();
+      }
     } else {
-      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointermove", onMouseMove);
     }
 
     window.addEventListener("resize", resize);
@@ -617,10 +678,13 @@ export function LisaCharacter({
     return () => {
       disposed = true;
       cancelAnimationFrame(raf);
-      window.removeEventListener("pointermove", onMove);
+      enableMotionRef.current = null;
+      window.removeEventListener("pointermove", onMouseMove);
       window.removeEventListener("deviceorientation", onDeviceOrient, true);
-      window.removeEventListener("pointerdown", onFirstGesture);
-      window.removeEventListener("touchstart", onFirstGesture);
+      renderer.domElement.removeEventListener("pointerdown", onDragDown);
+      renderer.domElement.removeEventListener("pointermove", onDragMove);
+      renderer.domElement.removeEventListener("pointerup", onDragUp);
+      renderer.domElement.removeEventListener("pointercancel", onDragUp);
       window.removeEventListener("resize", resize);
       ro.disconnect();
       if (renderer.domElement.parentElement === mount) {
@@ -631,5 +695,20 @@ export function LisaCharacter({
     };
   }, []);
 
-  return <div ref={mountRef} className={className} aria-hidden="true" />;
+  return (
+    <div ref={mountRef} className={className}>
+      {showMotionPrompt ? (
+        <button
+          type="button"
+          className="c-lisa_motion-enable"
+          onClick={(e) => {
+            e.stopPropagation();
+            enableMotionRef.current?.();
+          }}
+        >
+          Allow motion look
+        </button>
+      ) : null}
+    </div>
+  );
 }
