@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
@@ -696,19 +697,30 @@ export function LisaCharacter({
   }, []);
 
   return (
-    <div ref={mountRef} className={className}>
-      {showMotionPrompt ? (
-        <button
-          type="button"
-          className="c-lisa_motion-enable"
-          onClick={(e) => {
-            e.stopPropagation();
-            enableMotionRef.current?.();
-          }}
-        >
-          Allow motion look
-        </button>
-      ) : null}
-    </div>
+    <>
+      <div ref={mountRef} className={className} aria-hidden="true" />
+      {showMotionPrompt && typeof document !== "undefined"
+        ? createPortal(
+            <button
+              type="button"
+              className="c-lisa_motion-enable"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                enableMotionRef.current?.();
+              }}
+              onTouchEnd={(e) => {
+                // iOS: ensure the gesture registers even if click is flaky
+                e.preventDefault();
+                e.stopPropagation();
+                enableMotionRef.current?.();
+              }}
+            >
+              Allow motion look
+            </button>,
+            document.body
+          )
+        : null}
+    </>
   );
 }

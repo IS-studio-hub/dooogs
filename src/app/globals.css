@@ -328,6 +328,7 @@ video {
   height: var(--header-height);
   background-color: transparent;
   z-index: 740;
+  pointer-events: none;
 }
 
 .c-header {
@@ -344,6 +345,14 @@ video {
   grid-template-columns: repeat(var(--grid-columns), 1fr);
   gap: 1.3333333333rem;
   padding: 0 var(--grid-margin);
+  pointer-events: none;
+}
+
+.c-header a,
+.c-header button,
+.c-header_logo,
+.c-header_menu-toggler {
+  pointer-events: auto;
 }
 
 .c-header_logo {
@@ -504,25 +513,27 @@ html:not(.has-menu-opened) .c-menu {
 }
 
 .c-lisa_motion-enable {
-  position: absolute;
-  top: max(0.85rem, env(safe-area-inset-top));
+  position: fixed;
+  top: calc(var(--header-height) + env(safe-area-inset-top, 0px) + 0.35rem);
   left: 50%;
   transform: translateX(-50%);
-  z-index: 3;
+  z-index: 900;
   border: 0;
   border-radius: 999px;
-  padding: 0.65rem 1.1rem;
+  padding: 0.75rem 1.25rem;
   font: inherit;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   font-weight: 600;
   letter-spacing: 0.01em;
   color: #111;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.18);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  pointer-events: auto;
+  touch-action: manipulation;
 }
 
 .c-lisa_motion-enable:active {
