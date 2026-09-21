@@ -376,11 +376,13 @@ export function LisaCharacter({
           const res = await DOE.requestPermission();
           if (res !== "granted") return;
         }
-        window.addEventListener("deviceorientation", onDeviceOrient, true);
       } catch {
-        // Fallback: some Android browsers don't need / support requestPermission
-        window.addEventListener("deviceorientation", onDeviceOrient, true);
+        /* continue — many Androids don't need this */
       }
+      // Re-bind after iOS grant (safe if already listening)
+      window.removeEventListener("deviceorientation", onDeviceOrient, true);
+      window.addEventListener("deviceorientation", onDeviceOrient, true);
+      orientBase = null; // recalibrate facing the user after permission
     };
 
     // iOS requires a user gesture — hook the first tap/touch anywhere
@@ -391,7 +393,7 @@ export function LisaCharacter({
     };
 
     if (useDeviceSensors) {
-      // Android often works without permission; iOS needs gesture
+      // Android usually works immediately; iOS unlocks on first tap
       window.addEventListener("deviceorientation", onDeviceOrient, true);
       window.addEventListener("pointerdown", onFirstGesture, { once: true });
       window.addEventListener("touchstart", onFirstGesture, { once: true });

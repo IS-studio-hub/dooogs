@@ -416,7 +416,7 @@ export function LisaApp({
     return <div className="c-lisa">Missing step.</div>;
   }
 
-  const showAskBar = stepId === "chat" || chatMessages.length > 0;
+  const showAskBar = true;
 
   return (
     <div
