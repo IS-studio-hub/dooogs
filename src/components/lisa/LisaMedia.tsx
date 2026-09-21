@@ -3,7 +3,8 @@
 import { LisaCharacter, type CharacterClip } from "./LisaCharacter";
 
 /**
- * Dooogs! media stage — 3D character with mouse look.
+ * Dooogs! media stage — 3D character.
+ * Desktop: mouse look. Mobile/tablet: device-orientation look.
  */
 export function LisaMedia({
   clip = "idle",

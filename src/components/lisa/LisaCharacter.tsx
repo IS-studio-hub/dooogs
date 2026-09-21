@@ -42,8 +42,10 @@ function findBone(root: THREE.Object3D, names: string[]): THREE.Bone | null {
 }
 
 /**
- * Neck/head mouse tracking with a light upper-chest follow.
- * Mouse right → head looks right; mouse left → looks left.
+ * Neck/head look tracking:
+ * - Desktop: follows the mouse
+ * - Mobile / tablet: follows the user via device orientation sensors
+ *   (tilt / move the device — character looks toward you)
  */
 export function LisaCharacter({
   clip = "idle",
@@ -193,8 +195,8 @@ export function LisaCharacter({
       const breath = 0.5 + 0.5 * Math.sin(t * 0.55);
       const breath2 = 0.5 + 0.5 * Math.sin(t * 0.82 + 1.1);
       const breath3 = 0.5 + 0.5 * Math.sin(t * 0.4 + 2.4);
-      const mx = mouseNdcSmooth.x;
-      const my = mouseNdcSmooth.y;
+      const mx = lookNdcSmooth.x;
+      const my = lookNdcSmooth.y;
 
       key.intensity = 3.8 + breath * 0.45 + Math.abs(mx) * 0.2;
       keySun.intensity = 0.48 + breath * 0.08 + Math.max(0, mx) * 0.06;
@@ -277,10 +279,11 @@ export function LisaCharacter({
     let raf = 0;
     let disposed = false;
 
-    const mouseNdc = new THREE.Vector2(0, 0);
-    const mouseNdcSmooth = new THREE.Vector2(0, 0);
-    const prevMouse = new THREE.Vector2(0, 0);
-    let mouseMoved = false;
+    /** -1..1 look target (mouse NDC on desktop, sensor-derived on mobile) */
+    const lookNdc = new THREE.Vector2(0, 0);
+    const lookNdcSmooth = new THREE.Vector2(0, 0);
+    const prevLook = new THREE.Vector2(0, 0);
+    let lookMoved = false;
     let gazeSettled = true;
     let stillFrames = 0;
 
@@ -301,6 +304,17 @@ export function LisaCharacter({
 
     let framePortraitFn: (() => void) | null = null;
 
+    // Phones + tablets only: device orientation. Desktop keeps mouse.
+    const useDeviceSensors =
+      typeof window !== "undefined" &&
+      (window.matchMedia("(hover: none) and (pointer: coarse)").matches ||
+        (/iPad|iPhone|iPod|Android/i.test(navigator.userAgent) &&
+          (navigator.maxTouchPoints || 0) > 0 &&
+          window.matchMedia("(hover: none)").matches));
+
+    // Baseline orientation so first reading = looking forward (not a jump)
+    let orientBase: { beta: number; gamma: number } | null = null;
+
     const resize = () => {
       const w = mount.clientWidth || window.innerWidth;
       const h = mount.clientHeight || window.innerHeight;
@@ -315,17 +329,76 @@ export function LisaCharacter({
     };
     resize();
 
-    const onMove = (e: PointerEvent) => {
-      const w = window.innerWidth || 1;
-      const h = window.innerHeight || 1;
-      // Full viewport NDC — edge of screen = max look
-      mouseNdc.x = (e.clientX / w) * 2 - 1;
-      mouseNdc.y = -((e.clientY / h) * 2 - 1);
-      mouseMoved = true;
+    const pushLook = (x: number, y: number) => {
+      lookNdc.x = THREE.MathUtils.clamp(x, -1, 1);
+      lookNdc.y = THREE.MathUtils.clamp(y, -1, 1);
+      lookMoved = true;
       gazeSettled = false;
       stillFrames = 0;
     };
-    window.addEventListener("pointermove", onMove);
+
+    const onMove = (e: PointerEvent) => {
+      if (useDeviceSensors) return; // mobile/tablet: sensors only
+      const w = window.innerWidth || 1;
+      const h = window.innerHeight || 1;
+      pushLook((e.clientX / w) * 2 - 1, -((e.clientY / h) * 2 - 1));
+    };
+
+    const onDeviceOrient = (e: DeviceOrientationEvent) => {
+      if (!useDeviceSensors || disposed) return;
+      // beta: front-back (-180..180), gamma: left-right (-90..90)
+      const beta = e.beta;
+      const gamma = e.gamma;
+      if (beta == null || gamma == null) return;
+
+      if (!orientBase) {
+        orientBase = { beta, gamma };
+      }
+
+      // Delta from the pose when sensors started = where the user's face moved
+      const dGamma = gamma - orientBase.gamma;
+      const dBeta = beta - orientBase.beta;
+
+      // Map degrees → look NDC. Flip gamma so tilting phone right looks right.
+      // Holding phone upright: moving face/device left-right drives yaw.
+      const x = THREE.MathUtils.clamp(dGamma / 28, -1, 1);
+      const y = THREE.MathUtils.clamp(-dBeta / 36, -1, 1);
+      pushLook(x, y);
+    };
+
+    const requestOrientPermission = async () => {
+      if (!useDeviceSensors) return;
+      const DOE = DeviceOrientationEvent as unknown as {
+        requestPermission?: () => Promise<"granted" | "denied">;
+      };
+      try {
+        if (typeof DOE.requestPermission === "function") {
+          const res = await DOE.requestPermission();
+          if (res !== "granted") return;
+        }
+        window.addEventListener("deviceorientation", onDeviceOrient, true);
+      } catch {
+        // Fallback: some Android browsers don't need / support requestPermission
+        window.addEventListener("deviceorientation", onDeviceOrient, true);
+      }
+    };
+
+    // iOS requires a user gesture — hook the first tap/touch anywhere
+    const onFirstGesture = () => {
+      void requestOrientPermission();
+      window.removeEventListener("pointerdown", onFirstGesture);
+      window.removeEventListener("touchstart", onFirstGesture);
+    };
+
+    if (useDeviceSensors) {
+      // Android often works without permission; iOS needs gesture
+      window.addEventListener("deviceorientation", onDeviceOrient, true);
+      window.addEventListener("pointerdown", onFirstGesture, { once: true });
+      window.addEventListener("touchstart", onFirstGesture, { once: true });
+    } else {
+      window.addEventListener("pointermove", onMove);
+    }
+
     window.addEventListener("resize", resize);
     const ro = new ResizeObserver(() => resize());
     ro.observe(mount);
@@ -333,13 +406,13 @@ export function LisaCharacter({
     const applyGaze = (dt: number) => {
       if (!joints.length) return;
 
-      if (mouseMoved) {
+      if (lookMoved) {
         // Full viewport, but dialed back a bit from max turn
-        targetYaw = mouseNdcSmooth.x * 0.72;
-        targetPitch = mouseNdcSmooth.y * 0.32;
+        targetYaw = lookNdcSmooth.x * 0.72;
+        targetPitch = lookNdcSmooth.y * 0.32;
       }
 
-      const damp = mouseMoved ? 11 : 13;
+      const damp = lookMoved ? 11 : 13;
       const k = 1 - Math.exp(-dt * damp);
       smoothYaw += (targetYaw - smoothYaw) * k;
       smoothPitch += (targetPitch - smoothPitch) * k;
@@ -381,7 +454,7 @@ export function LisaCharacter({
 
       const angErr =
         Math.abs(smoothYaw - targetYaw) + Math.abs(smoothPitch - targetPitch);
-      if (!mouseMoved && angErr < 0.002) gazeSettled = true;
+      if (!lookMoved && angErr < 0.002) gazeSettled = true;
     };
 
     new GLTFLoader().load(
@@ -502,14 +575,16 @@ export function LisaCharacter({
 
     const tick = () => {
       const dt = Math.min(clock.getDelta(), 0.05);
-      const movedDist = mouseNdc.distanceTo(prevMouse);
-      if (movedDist > STILL_EPS) mouseMoved = true;
-      prevMouse.copy(mouseNdc);
+      const movedDist = lookNdc.distanceTo(prevLook);
+      if (movedDist > STILL_EPS) lookMoved = true;
+      prevLook.copy(lookNdc);
 
-      mouseNdcSmooth.lerp(mouseNdc, 1 - Math.exp(-dt * 14));
-      const followErr = mouseNdcSmooth.distanceTo(mouseNdc);
+      // Sensors: slightly softer follow so gyro noise doesn't jitter the neck
+      const followRate = useDeviceSensors ? 9 : 14;
+      lookNdcSmooth.lerp(lookNdc, 1 - Math.exp(-dt * followRate));
+      const followErr = lookNdcSmooth.distanceTo(lookNdc);
       if (followErr < STILL_EPS && movedDist < STILL_EPS) {
-        mouseMoved = false;
+        lookMoved = false;
         stillFrames += 1;
       } else {
         stillFrames = 0;
@@ -525,8 +600,8 @@ export function LisaCharacter({
         }
       }
 
-      if (framed && (!gazeSettled || mouseMoved)) applyGaze(dt);
-      if (!mouseMoved && stillFrames >= STILL_FRAMES_TO_FREEZE) {
+      if (framed && (!gazeSettled || lookMoved)) applyGaze(dt);
+      if (!lookMoved && stillFrames >= STILL_FRAMES_TO_FREEZE) {
         gazeSettled = true;
       }
 
@@ -541,6 +616,9 @@ export function LisaCharacter({
       disposed = true;
       cancelAnimationFrame(raf);
       window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("deviceorientation", onDeviceOrient, true);
+      window.removeEventListener("pointerdown", onFirstGesture);
+      window.removeEventListener("touchstart", onFirstGesture);
       window.removeEventListener("resize", resize);
       ro.disconnect();
       if (renderer.domElement.parentElement === mount) {
