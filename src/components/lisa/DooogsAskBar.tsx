@@ -345,16 +345,15 @@ export function DooogsAskBar({
   function sendTyped() {
     const text = value.trim();
     if (!text || disabled) return;
-    unlockDooogsAudio();
     if (conversation) {
-      // Typed send while in conversation — treat as a turn, stay in mode
+      // Typed while mic mode was on — still a text question (no voice reply)
       pauseRec();
       setValue("");
       finalsRef.current = "";
-      onSubmit(text, { fromMic: true });
+      onSubmit(text, { fromMic: false });
       return;
     }
-    onSubmit(text);
+    onSubmit(text, { fromMic: false });
     setValue("");
     inputRef.current?.focus();
   }

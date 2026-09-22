@@ -172,7 +172,7 @@ export function LisaApp({
   }, []);
 
   const askDog = useCallback(
-    async (userText: string, _opts?: { fromMic?: boolean }) => {
+    async (userText: string, opts?: { fromMic?: boolean }) => {
       const text = userText.trim();
       if (!text || askingRef.current) return;
       if (text.startsWith("(") && text.endsWith(")")) {
@@ -181,9 +181,23 @@ export function LisaApp({
         return;
       }
 
-      unlockDooogsAudio();
-      mutedRef.current = false;
-      setMuted(false);
+      const fromMic = Boolean(opts?.fromMic);
+
+      // Voice in → voice out. Text in → text only (keep sound off).
+      if (fromMic) {
+        unlockDooogsAudio();
+        mutedRef.current = false;
+        setMuted(false);
+      } else {
+        stopVoice();
+        mutedRef.current = true;
+        setMuted(true);
+        const ambient = audioRef.current;
+        if (ambient) {
+          ambient.pause();
+          ambient.volume = 0;
+        }
+      }
 
       askingRef.current = true;
       setThinking(true);
@@ -239,7 +253,7 @@ export function LisaApp({
         askingRef.current = false;
       }
 
-      if (replyHtml) {
+      if (replyHtml && fromMic) {
         try {
           await playVoice(replyHtml, { force: true });
         } catch {
@@ -251,7 +265,7 @@ export function LisaApp({
         setConversation(false);
       }
     },
-    [chatMessages, locale, showAssistantReply, playVoice]
+    [chatMessages, locale, showAssistantReply, playVoice, stopVoice]
   );
 
   const goTo = useCallback(
@@ -413,11 +427,14 @@ export function LisaApp({
   }
 
   function handleAskSubmit(text: string, meta?: { fromMic?: boolean }) {
-    unlockDooogsAudio();
-    mutedRef.current = false;
-    setMuted(false);
+    const fromMic = Boolean(meta?.fromMic);
+    if (fromMic) {
+      unlockDooogsAudio();
+    } else {
+      stopVoice();
+    }
     setSheetOpen(true);
-    void askDog(text, { fromMic: Boolean(meta?.fromMic) });
+    void askDog(text, { fromMic });
   }
 
   if (!step) {
