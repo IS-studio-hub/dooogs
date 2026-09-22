@@ -226,9 +226,24 @@ select {
   background: transparent;
   color: inherit;
   font: inherit;
+  /* Absolute 16px — prevents iOS Safari auto-zoom on focus */
+  font-size: 16px;
   line-height: normal;
   -webkit-appearance: none;
   appearance: none;
+}
+
+button,
+a,
+summary,
+.c-dooogs-ask_action,
+.c-lisa_button,
+.c-lisa_sound,
+.c-lisa_back,
+.c-lisa_motion-enable,
+.c-inapp_btn,
+.c-cookie_btn {
+  touch-action: manipulation;
 }
 
 img,
@@ -724,7 +739,7 @@ html:not(.has-menu-opened) .c-menu {
   }
 
   .c-dooogs-ask_input {
-    font-size: 1rem;
+    font-size: 16px;
     padding: 0.7rem 0.35rem;
   }
 
@@ -1087,7 +1102,7 @@ html:not(.has-menu-opened) .c-menu {
   min-width: 0;
   border: 0;
   background: transparent;
-  font-size: 0.95rem;
+  font-size: 16px;
   padding: 0.55rem 0.25rem;
   color: var(--color);
   outline: none;
