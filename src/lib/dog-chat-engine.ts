@@ -3,7 +3,11 @@
  * Intent → retrieve breed/topic knowledge → grounded reply (LLM or composed)
  * → speakable text (no markdown) → suggestions.
  *
- * Cascaded voice path lives in the UI: STT → this engine → TTS.
+ * Cascade for GitHub Pages:
+ * 1) Local / tunneled Ollama (free, when available)
+ * 2) Free cloud LLM (Pollinations — no key)
+ * 3) Cloudflare Worker (Workers AI / configured Ollama)
+ * 4) Offline dog knowledge base
  */
 
 import { isWeakDogReply } from "@/lib/dog-expert";
@@ -12,6 +16,8 @@ import {
   offlineDogReply,
 } from "@/lib/dog-offline";
 import { apiUrl } from "@/lib/api-url";
+import { tryBrowserOllama } from "@/lib/browser-ollama";
+import { chatWithFreeLlm } from "@/lib/free-llm";
 
 export type ChatMessage = { role: "user" | "assistant"; content: string };
 
@@ -56,7 +62,7 @@ export function detectTopic(
 
 /**
  * One conversational turn for Dooogs!.
- * Prefer live Worker AI when it returns grounded content; otherwise compose from KB.
+ * Prefer live AI when grounded; otherwise compose from the dog KB.
  */
 export async function runDogChatTurn(
   userText: string,
@@ -69,7 +75,7 @@ export async function runDogChatTurn(
     ...history,
     { role: "user", content: text },
   ];
-  const timeoutMs = opts?.timeoutMs ?? 12_000;
+  const timeoutMs = opts?.timeoutMs ?? 28_000;
   const snippet = getBreedKnowledgeSnippet(text, locale);
   const topic = detectTopic(text);
 
@@ -78,9 +84,58 @@ export async function runDogChatTurn(
   let source = "offline";
   let fromLiveAi = false;
 
+  // 1) Ollama (local or public tunnel) — free Llama-class models
+  try {
+    const ollama = await tryBrowserOllama(nextMessages, locale);
+    if (ollama?.reply && !isWeakDogReply(text, ollama.reply)) {
+      return {
+        reply: ollama.reply,
+        suggestions: ollama.suggestions,
+        source: ollama.source,
+        topic,
+      };
+    }
+    if (ollama?.reply) {
+      reply = ollama.reply;
+      suggestions = ollama.suggestions;
+      source = ollama.source;
+      fromLiveAi = true;
+    }
+  } catch {
+    /* next */
+  }
+
+  // 2) Free cloud LLM (works on GitHub Pages with no keys)
+  if (!fromLiveAi || isWeakDogReply(text, reply)) {
+    try {
+      const free = await chatWithFreeLlm(nextMessages, locale, {
+        signal: opts?.signal,
+        timeoutMs: Math.min(timeoutMs, 28_000),
+        context: snippet || undefined,
+      });
+      if (free?.reply && !isWeakDogReply(text, free.reply)) {
+        return {
+          reply: free.reply,
+          suggestions: free.suggestions,
+          source: free.source,
+          topic,
+        };
+      }
+      if (free?.reply) {
+        reply = free.reply;
+        suggestions = free.suggestions;
+        source = free.source;
+        fromLiveAi = true;
+      }
+    } catch {
+      /* next */
+    }
+  }
+
+  // 3) Cloudflare Worker (Workers AI / configured Ollama)
   try {
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    const timer = setTimeout(() => ctrl.abort(), Math.min(timeoutMs, 14_000));
     const onOuter = () => ctrl.abort();
     opts?.signal?.addEventListener("abort", onOuter);
     try {
@@ -90,7 +145,6 @@ export async function runDogChatTurn(
         body: JSON.stringify({
           messages: nextMessages,
           locale,
-          // Help the worker ground answers (RAG-lite)
           context: snippet || undefined,
           topic: topic || undefined,
         }),
@@ -102,12 +156,25 @@ export async function runDogChatTurn(
           suggestions?: string[];
           source?: string;
         };
-        reply = data.reply?.trim() || "";
-        suggestions = Array.isArray(data.suggestions) ? data.suggestions : [];
-        source = data.source || "worker";
-        fromLiveAi = Boolean(
-          reply && data.source && !String(data.source).startsWith("offline")
+        const workerReply = data.reply?.trim() || "";
+        const workerSource = data.source || "worker";
+        const workerLive = Boolean(
+          workerReply && data.source && !String(data.source).startsWith("offline")
         );
+        if (workerLive && workerReply && !isWeakDogReply(text, workerReply)) {
+          return {
+            reply: workerReply,
+            suggestions: Array.isArray(data.suggestions) ? data.suggestions : [],
+            source: workerSource,
+            topic,
+          };
+        }
+        if (workerReply && (!reply || workerReply.length > reply.length)) {
+          reply = workerReply;
+          suggestions = Array.isArray(data.suggestions) ? data.suggestions : suggestions;
+          source = workerSource;
+          fromLiveAi = workerLive || fromLiveAi;
+        }
       }
     } finally {
       clearTimeout(timer);

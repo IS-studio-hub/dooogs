@@ -328,6 +328,35 @@ async function chatViaOllama(cleaned, locale, env, extraContext) {
   };
 }
 
+/** Free cloud LLM — no key (Pollinations OpenAI-compatible). */
+async function chatViaFreeLlm(cleaned, locale, extraContext) {
+  const lastUser = cleaned[cleaned.length - 1]?.content || "";
+  const system = buildSystem(locale, lastUser, extraContext);
+  const upstream = await fetch("https://text.pollinations.ai/openai", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "openai",
+      temperature: 0.5,
+      max_tokens: 700,
+      messages: [{ role: "system", content: system }, ...cleaned.slice(-16)],
+    }),
+  });
+  if (!upstream.ok) {
+    const detail = await upstream.text().catch(() => "");
+    throw new Error(`free_llm_${upstream.status}:${detail.slice(0, 80)}`);
+  }
+  const data = await upstream.json();
+  const raw = data.choices?.[0]?.message?.content?.trim() || "";
+  if (!raw) throw new Error("free_llm_empty");
+  const parsed = parseReplyAndSuggestions(raw);
+  return {
+    reply: parsed.reply,
+    suggestions: parsed.suggestions.length ? parsed.suggestions : defaultSuggestions(locale),
+    source: "free-llm:pollinations",
+  };
+}
+
 async function chatViaWorkersAI(cleaned, locale, env, extraContext) {
   if (!env.AI) throw new Error("workers_ai_missing");
 
@@ -418,7 +447,7 @@ async function handleChat(req, env) {
 
   const errors = [];
   try {
-    // Primary: Workers AI (same on every device)
+    // Primary: Workers AI (when available on a claimed Cloudflare account)
     try {
       const ai = await chatViaWorkersAI(cleaned, locale, env, extraContext);
       if (ai?.reply && !isWeak(ai.reply)) return json(req, ai);
@@ -428,7 +457,17 @@ async function handleChat(req, env) {
       errors.push(err instanceof Error ? err.message.slice(0, 180) : "workers_ai_failed");
     }
 
-    // Optional secondary Ollama if configured
+    // Free cloud LLM (no key) — works on temporary Workers too
+    try {
+      const free = await chatViaFreeLlm(cleaned, locale, extraContext);
+      if (free?.reply && !isWeak(free.reply)) return json(req, free);
+      if (free?.reply) return json(req, free);
+      errors.push("free_llm_weak_or_empty");
+    } catch (err) {
+      errors.push(err instanceof Error ? err.message.slice(0, 180) : "free_llm_failed");
+    }
+
+    // Optional Ollama if configured
     try {
       const ollama = await chatViaOllama(cleaned, locale, env, extraContext);
       if (ollama?.reply && !isWeak(ollama.reply)) return json(req, ollama);
@@ -616,7 +655,7 @@ export default {
       return json(req, {
         ok: true,
         service: "dooogs-api",
-        chat: "workers-ai",
+        chat: "workers-ai+free-llm+ollama",
         stt: WHISPER_MODEL,
         tts: "shared-google",
         model: WORKERS_AI_MODEL,

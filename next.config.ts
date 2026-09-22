@@ -36,14 +36,13 @@ const nextConfig: NextConfig = {
     // GitHub Pages has no Node API — chat/TTS hit Cloudflare Worker
     NEXT_PUBLIC_API_ORIGIN: isGithubPages
       ? process.env.NEXT_PUBLIC_API_ORIGIN ||
-        "https://ginny-dooogs-api.encouraging-tablecloth-a0e.workers.dev"
+        "https://ginny-dooogs-api.lofty-calliandra.workers.dev"
       : process.env.NEXT_PUBLIC_API_ORIGIN || "",
     NEXT_PUBLIC_OLLAMA_BASE_URL:
       process.env.NEXT_PUBLIC_OLLAMA_BASE_URL || "http://127.0.0.1:11434",
-    // Public tunnel so phones/tablets hit the same Ollama as desktop
+    // Optional public tunnel so phones hit the same Ollama as desktop
     NEXT_PUBLIC_OLLAMA_PUBLIC_URL:
-      process.env.NEXT_PUBLIC_OLLAMA_PUBLIC_URL ||
-      "https://intention-checked-shade-items.trycloudflare.com",
+      process.env.NEXT_PUBLIC_OLLAMA_PUBLIC_URL || "",
     NEXT_PUBLIC_OLLAMA_CHAT_MODEL:
       process.env.NEXT_PUBLIC_OLLAMA_CHAT_MODEL || "llama3.1:8b",
   },

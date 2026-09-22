@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 /** Local Next STT proxies to the same Cloudflare Worker used on Pages. */
 const WORKER =
   process.env.NEXT_PUBLIC_API_ORIGIN?.replace(/\/$/, "") ||
-  "https://ginny-dooogs-api.encouraging-tablecloth-a0e.workers.dev";
+  "https://ginny-dooogs-api.lofty-calliandra.workers.dev";
 
 export async function POST(req: NextRequest) {
   try {

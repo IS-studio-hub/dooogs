@@ -3,9 +3,10 @@ import { withBase } from "@/lib/base-path";
 /**
  * Cloudflare Worker for /api/chat + /api/tts + /api/stt (GitHub Pages has no Next server).
  * Temporary preview workers expire unless claimed in the Cloudflare dashboard.
+ * Chat also falls back to free browser LLM + Ollama when the worker is down.
  */
 const PAGES_API_ORIGIN =
-  "https://ginny-dooogs-api.adorable-laser.workers.dev";
+  "https://ginny-dooogs-api.lofty-calliandra.workers.dev";
 
 /**
  * API routes on GitHub Pages must hit an external origin (Cloudflare Worker).

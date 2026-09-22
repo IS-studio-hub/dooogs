@@ -117,6 +117,76 @@ const BREEDS: Record<
     en: `Oh, pit bulls — great question. “Pit bull” usually means a family of strong, muscular bully-type dogs, most often the American Pit Bull Terrier, plus close cousins like the American Staffordshire Terrier and Staffordshire Bull Terrier.<br><br>They come from old bull-and-terrier roots. Raised well, a lot of them are affectionate, goofy, and deeply people-oriented. They need daily exercise, early socialization, clear manners, and a calm, consistent human.<br><br>Use a sturdy harness on walks — they’re strong. Skip chocolate, grapes, xylitol, and onions. And honestly? Training and responsible ownership matter way more than the label.<br><br>Want training tips, apartment life notes, or how AmStaff and Staffy differ?`,
     fr: `Ah, les pit bulls — super question. « Pit bull » désigne surtout une famille de chiens bully musclés, souvent l’American Pit Bull Terrier, proches de l’American Staffordshire et du Staffordshire Bull Terrier.<br><br>Racines bull-and-terrier. Bien élevés, beaucoup sont affectueux, joueurs et très orientés vers l’humain. Il leur faut de l’exercice, une socialisation précoce, de bonnes manières, et quelqu’un de calme et constant.<br><br>Harnais solide en laisse — ils ont de la force. Pas de chocolat, raisin, xylitol, oignon. Et franchement: l’éducation compte plus que l’étiquette.<br><br>Tu veux des tips d’éducation, la vie en appart, ou les différences AmStaff / Staffy?`,
   },
+  chihuahua: {
+    keys: ["chihuahua"],
+    en: `Chihuahuas are tiny, alert companions with outsized personalities — apple or deer heads, big eyes, big opinions.<br><br>Mexican origins; among the world’s smallest dog breeds; popular apartment companions everywhere.<br><br>Mind cold, dental care, and gentle handling. They can be territorial — early socialization helps. Never toxic foods.<br><br>See toy-group shows and Chihuahua club events.`,
+    fr: `Le Chihuahua est un tout petit compagnon très expressif — tête pomme ou cerf, grands yeux, grand caractère.<br><br>Origines mexicaines; parmi les plus petites races; idéal en appart.<br><br>Attention froid, dents, manipulation douce. Socialisation tôt. Pas d’aliments toxiques.<br><br>Expos toy et clubs Chihuahua.`,
+  },
+  malinois: {
+    keys: ["malinois", "belgian malinois", "mali"],
+    en: `Belgian Malinois are intense working athletes — sharp, driven, and built for protection, sport, and detection work.<br><br>Belgian herding roots; common in police/military and high-level dog sport worldwide.<br><br>Not a casual first dog: they need expert handling, heavy exercise, and a real job. Avoid underwork. No toxic human foods.<br><br>See IGP/PSA sport, detection demos, and Malinois clubs.`,
+    fr: `Le Malinois belge est un athlète de travail intense — vif, drive élevé, fait pour protection, sport et détection.<br><br>Racines de berger belge; police/armée et sport canin mondial.<br><br>Pas un premier chien “facile”: main experte, gros exercice, vrai job. Pas d’aliments toxiques.<br><br>Sport IGP/PSA, clubs Malinois.`,
+  },
+  dane: {
+    keys: ["great dane", "dane", "dogue allemand"],
+    en: `Great Danes are gentle giants — tall, affectionate, and surprisingly soft indoors when well exercised.<br><br>German “Deutsche Dogge” history; worldwide family and show companions.<br><br>Need space, joint-aware exercise (especially as puppies), and portion control. Short coats feel cold. Never toxic foods.<br><br>See giant-breed shows and Great Dane club specialties.`,
+    fr: `Le Dogue allemand est un géant doux — grand, affectueux, souvent calme à la maison s’il est bien sorti.<br><br>Histoire allemande; famille et expos mondiales.<br><br>Espace, exercice respectueux des articulations (chiot!), portions. Poil court: froid. Pas d’aliments toxiques.<br><br>Expos géants et clubs.`,
+  },
+  newfoundland: {
+    keys: ["newfoundland", "newfie", "terre-neuve", "terre neuve"],
+    en: `Newfoundlands are massive water-rescue dogs — sweet, patient, and famously gentle with families.<br><br>Canadian maritime roots; strong swimmers with a water-resistant coat.<br><br>Need room, grooming for heavy coats, and joint-aware care. Watch heat. Never toxic foods.<br><br>See water-rescue demos and Newfoundland club events.`,
+    fr: `Le Terre-Neuve est un grand sauveteur aquatique — doux, patient, fabuleux avec les familles.<br><br>Racines maritimes canadiennes; excellent nageur, poil résistant à l’eau.<br><br>Espace, toilettage, articulations, attention chaleur. Pas d’aliments toxiques.<br><br>Démos de sauvetage et clubs.`,
+  },
+  bernese: {
+    keys: ["bernese", "berner", "bouvier bernois"],
+    en: `Bernese Mountain Dogs are tri-colored Swiss farm dogs — loyal, calm, and people-oriented.<br><br>From the Bern region; draft and droving history; popular family companions.<br><br>Heavy coat needs brushing; moderate exercise; watch joints and heat. Choose health-focused breeders. No toxic foods.<br><br>See draft tests and Bernese club gatherings.`,
+    fr: `Le Bouvier bernois est un chien de ferme suisse tricolore — loyal, calme, proche des humains.<br><br>Régions près de Berne; trait et conduite; compagnon familial.<br><br>Poil dense à brosser, exercice modéré, articulations et chaleur. Éleveurs sérieux. Pas d’aliments toxiques.<br><br>Tests de trait et clubs.`,
+  },
+  cavalier: {
+    keys: ["cavalier", "cavalier king charles"],
+    en: `Cavalier King Charles Spaniels are affectionate toy spaniels — soft eyes, silky ears, lap-loving hearts.<br><br>British companion history; popular worldwide as gentle family dogs.<br><br>Need daily brushing, heart-aware breeding choices, and moderate walks. Never toxic foods.<br><br>See toy/spaniel shows and Cavalier club events.`,
+    fr: `Le Cavalier King Charles est un épagneul toy affectueux — regard doux, oreilles soyeuses.<br><br>Histoire de compagnon britannique; famille douce partout.<br><br>Brossage, choix d’élevage attentif au cœur, marches modérées. Pas d’aliments toxiques.<br><br>Expos et clubs Cavalier.`,
+  },
+  shihtzu: {
+    keys: ["shih tzu", "shihtzu", "shitzu"],
+    en: `Shih Tzus are charming companion dogs with flowing coats and a regal little presence.<br><br>Tibetan/Chinese palace companion roots; now global lap and show favorites.<br><br>Daily coat care (or a puppy cut), dental attention, and short walks. Avoid rough play. No toxic foods.<br><br>See toy-group shows and Shih Tzu clubs.`,
+    fr: `Le Shih Tzu est un compagnon charmant au long poil, petite allure de palace.<br><br>Racines tibétaines/chinoises; star des genoux et des expos.<br><br>Toilettage (ou coupe courte), dents, petites marches. Pas d’aliments toxiques.<br><br>Expos toy et clubs.`,
+  },
+  pomeranian: {
+    keys: ["pomeranian", "pom ", "spitz nain"],
+    en: `Pomeranians are fluffy toy spitz dogs — bright, vocal, and full of sparkle.<br><br>From larger sled-type spitz downsized in Europe; global companion icons.<br><br>Coat needs brushing; watch knees and dental health. Early manners curb “big dog in a small body.” No toxic foods.<br><br>See toy shows and Pomeranian club specialties.`,
+    fr: `Le Spitz nain (Pomeranian) est un petit spitz flamboyant — vif, expressif, très présent.<br><br>Issu de plus grands spitz européens; compagnon mondial.<br><br>Brossage, genoux, dents. Éducation tôt. Pas d’aliments toxiques.<br><br>Expos toy et clubs.`,
+  },
+  whippet: {
+    keys: ["whippet"],
+    en: `Whippets are sleek sighthounds — gentle couch potatoes indoors, rockets on a sprint.<br><br>British racing/coursing roots; wonderful apartment athletes with soft temperaments.<br><br>Need warm coats in cold weather, secure off-leash spaces, and burst exercise. Never toxic foods.<br><br>See lure coursing and sighthound club events.`,
+    fr: `Le Whippet est un lévrier fin — câlin à la maison, éclair en sprint.<br><br>Racines britanniques de course; super en appart avec de bons décharges.<br><br>Manteau par froid, espace sécurisé, exercices en rafales. Pas d’aliments toxiques.<br><br>Lure coursing et clubs.`,
+  },
+  greyhound: {
+    keys: ["greyhound", "lévrier anglais"],
+    en: `Greyhounds are the classic sprinting sighthound — often calm and sweet at home after a career or as a rescue companion.<br><br>Ancient racing/coursing history; popular adoptees worldwide.<br><br>Soft beds (thin skin/low body fat), warm coats, short bursts of speed in safe spaces. Never toxic foods.<br><br>See adoption groups and sighthound walks.`,
+    fr: `Le Greyhound est le lévrier sprinteur — souvent calme et doux à la maison, surtout en adoption.<br><br>Histoire ancienne de course; adoptés partout.<br><br>Paniers moelleux, manteau, sprints en lieux sûrs. Pas d’aliments toxiques.<br><br>Associations d’adoption et balades lévriers.`,
+  },
+  doberman: {
+    keys: ["doberman", "dobermann"],
+    en: `Dobermans are sleek, loyal guardian-athletes — intelligent, trainable, and people-focused when well bred and socialized.<br><br>Created in Germany by Karl Friedrich Louis Dobermann; worldwide protection and companion roles.<br><br>Need training, daily exercise, and clear structure. Short coats feel cold. No toxic foods.<br><br>See working trials and Doberman club events.`,
+    fr: `Le Dobermann est un athlète gardien élégant — intelligent, éducable, proche de l’humain s’il est bien socialisé.<br><br>Créé en Allemagne; protection et compagnie mondiales.<br><br>Éducation, exercice, cadre clair. Poil court: froid. Pas d’aliments toxiques.<br><br>Trials et clubs Dobermann.`,
+  },
+  samoyed: {
+    keys: ["samoyed", "samoyède", "samoyede"],
+    en: `Samoyeds are smiling Nordic spitz dogs — friendly, fluffy, and built for cold and company.<br><br>Siberian herding/sledding roots with the Samoyedic peoples; popular worldwide for that famous smile.<br><br>Heavy coat needs grooming; they shed; need exercise and hate extreme heat. No toxic foods.<br><br>See Nordic breed shows and Samoyed club events.`,
+    fr: `Le Samoyède est un spitz nordique souriant — sociable, floké, fait pour le froid et la compagnie.<br><br>Racines sibériennes; célèbre “sourire” mondial.<br><br>Toilettage, mue, exercice, attention chaleur. Pas d’aliments toxiques.<br><br>Expos nordiques et clubs.`,
+  },
+  jackrussell: {
+    keys: ["jack russell", "parson russell", "jrt"],
+    en: `Jack Russell / Parson Russell Terriers are bold earth-dogs — fearless, busy, and clever.<br><br>British fox-hunting terrier roots; energetic companions worldwide.<br><br>Need serious mental work and secure fencing. Digging and barking are features, not bugs. No toxic foods.<br><br>See earthdog/terrier trials and Russell club events.`,
+    fr: `Le Jack / Parson Russell est un terrier audacieux — courageux, occupé, malin.<br><br>Racines de chasse au renard; compagnon énergique partout.<br><br>Stimulation mentale, clôture solide. Creuser/aboyer font partie du package. Pas d’aliments toxiques.<br><br>Trials terrier et clubs.`,
+  },
+  weimaraner: {
+    keys: ["weimaraner", "braque de weimar", "weim"],
+    en: `Weimaraners are silver-gray gundogs — athletic, loyal, and often velcro with their people.<br><br>German hunting roots; popular active family dogs worldwide.<br><br>Need serious exercise and training. Separation can be hard. Short coats; watch joints. No toxic foods.<br><br>See field events and Weimaraner club specialties.`,
+    fr: `Le Braque de Weimar est un chien de chasse gris argent — athlétique, loyal, souvent “velcro”.<br><br>Racines allemandes; famille active mondiale.<br><br>Gros besoin d’exercice et d’éducation. Séparation difficile. Pas d’aliments toxiques.<br><br>Field et clubs Weimar.`,
+  },
 };
 
 function detectBreed(text: string): keyof typeof BREEDS | null {
@@ -130,7 +200,7 @@ function detectBreed(text: string): keyof typeof BREEDS | null {
 function isOffTopic(text: string): boolean {
   const t = text.toLowerCase();
   const doggy =
-    /dog|chien|breed|race|puppy|chiot|canine|labrador|poodle|caniche|shepherd|berger|beagle|collie|teckel|dachshund|golden|frenchie|bouledogue|husky|shiba|bulldog|yorkie|yorkshire|boxer|rott|aussie|australian|corgi|maltese|akita|pitbull|pit bull|pittie|stafford|amstaff|staffy|staffie|bully|akc|fci|groom|toilet|train|éduc|walk|promenade|bark|aboie|leash|laisse|vet|véto|kibble|croquette|toxic|chocolat|xylitol|tell me about|parle[- ]moi|c’est quoi|c'est quoi|what about|about the/.test(
+    /dog|chien|breed|race|puppy|chiot|canine|labrador|poodle|caniche|shepherd|berger|beagle|collie|teckel|dachshund|golden|frenchie|bouledogue|husky|shiba|bulldog|yorkie|yorkshire|boxer|rott|aussie|australian|corgi|maltese|akita|pitbull|pit bull|pittie|stafford|amstaff|staffy|staffie|bully|akc|fci|groom|toilet|train|éduc|walk|promenade|bark|aboie|leash|laisse|vet|véto|kibble|croquette|toxic|chocolat|xylitol|tell me about|parle[- ]moi|c’est quoi|c'est quoi|what about|about the|chihuahua|malinois|dane|newfoundland|bernese|cavalier|shih tzu|pomeranian|whippet|greyhound|doberman|samoyed|russell|weimaraner|mastiff|pointer/.test(
       t
     );
   return !doggy;

@@ -209,12 +209,12 @@ export function LisaApp({
         askingRef.current = false;
         setThinking(false);
         setSpeaking(false);
-      }, 18_000);
+      }, 40_000);
 
       let replyHtml = "";
       try {
         const turn = await runDogChatTurn(text, locale, chatMessages, {
-          timeoutMs: 12_000,
+          timeoutMs: 35_000,
         });
         replyHtml = turn.reply;
         setChatMessages((m) => [
