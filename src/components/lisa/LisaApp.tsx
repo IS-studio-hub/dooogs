@@ -246,8 +246,9 @@ export function LisaApp({
           /* ignore */
         }
       }
+      // Don't auto-reopen the mic — user taps to talk again
       if (conversationRef.current) {
-        window.setTimeout(() => setListenEpoch((n) => n + 1), 280);
+        setConversation(false);
       }
     },
     [chatMessages, locale, showAssistantReply, playVoice]

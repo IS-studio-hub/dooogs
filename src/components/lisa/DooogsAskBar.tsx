@@ -80,6 +80,17 @@ export function DooogsAskBar({
     valueRef.current = value;
   }, [value]);
 
+  // Parent may close conversation after an answer — stop listening
+  useEffect(() => {
+    if (!conversation) {
+      wantListenRef.current = false;
+      conversationRef.current = false;
+      clearTurnTimer();
+      hardStopRec();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversation]);
+
   useEffect(() => {
     return () => {
       clearTurnTimer();
@@ -88,7 +99,7 @@ export function DooogsAskBar({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Pause recognition while thinking/speaking; resume when listenEpoch bumps
+  // Pause recognition while thinking/speaking; only listen when user opened the mic
   useEffect(() => {
     if (disabled) {
       pauseRec();
@@ -163,7 +174,7 @@ export function DooogsAskBar({
       setValue("");
       finalsRef.current = "";
       onSubmit(draft, { fromMic: true });
-      // Parent will bump listenEpoch after voice ends
+      // Stay silent until the user taps the mic again
       window.setTimeout(() => {
         submittingRef.current = false;
       }, 400);
