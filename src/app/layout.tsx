@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import { Schibsted_Grotesk, Outfit } from "next/font/google";
 import "./globals.css";
 
@@ -75,7 +76,14 @@ export default function RootLayout({
       <head>
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
       </head>
-      <body>{children}</body>
+      <body>
+        {children}
+        <Script
+          src="https://lytico-production.up.railway.app/lytico.js"
+          strategy="afterInteractive"
+          data-site="lt_dooogs_is02"
+        />
+      </body>
     </html>
   );
 }
