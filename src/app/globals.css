@@ -1232,7 +1232,7 @@ html:not(.has-menu-opened) .c-menu {
 .c-lisa-field textarea {
   border-bottom: var(--border-size) solid var(--color);
   padding: 0.6em 0;
-  font-size: 1rem;
+  font-size: 16px;
 }
 
 .c-lisa-field textarea {
