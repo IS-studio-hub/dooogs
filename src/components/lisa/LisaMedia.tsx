@@ -3,12 +3,11 @@
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import type { CharacterClip } from "./LisaCharacter";
-import { canUseWebGL, isInAppBrowser } from "@/lib/in-app-browser";
+import { canUseWebGL } from "@/lib/in-app-browser";
 
 /**
- * Lazy-load the heavy Three.js character only in real browsers.
- * Facebook / LinkedIn WebViews OOM-crash (“A problem repeatedly occurred”)
- * if we mount WebGL on first paint.
+ * Lazy-load Three.js after first paint so Safari never OOM-crashes on boot.
+ * Same character experience — just deferred + GPU-safe inside LisaCharacter.
  */
 const LisaCharacter = dynamic(
   () => import("./LisaCharacter").then((m) => m.LisaCharacter),
@@ -16,7 +15,7 @@ const LisaCharacter = dynamic(
 );
 
 /**
- * Dooogs! media stage — 3D character when safe; plain stage in in-app browsers.
+ * Dooogs! media stage — 3D character on every browser that supports WebGL.
  */
 export function LisaMedia({
   clip = "idle",
@@ -36,18 +35,31 @@ export function LisaMedia({
       setReady(true);
       return;
     }
-    // Never start WebGL inside Facebook / LinkedIn / Instagram WebViews
-    if (isInAppBrowser()) {
-      setOk(false);
-      setReady(true);
-      return;
-    }
-    // Defer one frame so the shell paints before GPU work
-    const id = window.requestAnimationFrame(() => {
+    // Wait for idle so the shell + ask bar paint first (critical for Safari)
+    const start = () => {
       setOk(canUseWebGL());
       setReady(true);
-    });
-    return () => window.cancelAnimationFrame(id);
+    };
+    let idleId = 0;
+    let timeoutId = 0;
+    const ric = (
+      window as Window & {
+        requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+      }
+    ).requestIdleCallback;
+    if (typeof ric === "function") {
+      idleId = ric(start, { timeout: 900 });
+    } else {
+      timeoutId = window.setTimeout(start, 250);
+    }
+    return () => {
+      if (idleId && "cancelIdleCallback" in window) {
+        (
+          window as Window & { cancelIdleCallback?: (id: number) => void }
+        ).cancelIdleCallback?.(idleId);
+      }
+      if (timeoutId) window.clearTimeout(timeoutId);
+    };
   }, [useCharacter]);
 
   if (!ready || !useCharacter || !ok) {

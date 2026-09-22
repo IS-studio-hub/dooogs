@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { isInAppBrowser } from "@/lib/in-app-browser";
+import { isInAppBrowser, isIOS } from "@/lib/in-app-browser";
 
 /**
  * Fixes the “page pushed up / blank viewport” bug when opening from LinkedIn,
@@ -16,6 +16,7 @@ export function ViewportLock() {
     const root = document.documentElement;
     const inApp = isInAppBrowser();
     if (inApp) root.classList.add("is-inapp");
+    if (isIOS()) root.classList.add("is-ios");
 
     // Clean share-tracker params without a navigation (safe in WebViews)
     try {
@@ -84,6 +85,7 @@ export function ViewportLock() {
       window.removeEventListener("pageshow", onShow);
       window.visualViewport?.removeEventListener("resize", apply);
       root.classList.remove("is-inapp");
+      root.classList.remove("is-ios");
     };
   }, []);
 

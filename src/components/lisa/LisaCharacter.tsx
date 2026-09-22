@@ -8,7 +8,7 @@ import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment
 import { RectAreaLightUniformsLib } from "three/examples/jsm/lights/RectAreaLightUniformsLib.js";
 
 import { withBase } from "@/lib/base-path";
-import { isInAppBrowser } from "@/lib/in-app-browser";
+import { isInAppBrowser, needsLiteGpu } from "@/lib/in-app-browser";
 
 export type CharacterClip = "idle" | "talk" | "wave";
 
@@ -87,10 +87,11 @@ export function LisaCharacter({
     const mount = mountRef.current;
     if (!mount) return;
 
-    const lite = isInAppBrowser();
+    // Safari / iOS / Android: same look, far less GPU — prevents “problem repeatedly occurred”
+    const lite = needsLiteGpu() || isInAppBrowser();
 
     try {
-      RectAreaLightUniformsLib.init();
+      if (!lite) RectAreaLightUniformsLib.init();
     } catch {
       /* ignore */
     }
@@ -100,7 +101,10 @@ export function LisaCharacter({
       renderer = new THREE.WebGLRenderer({
         antialias: !lite,
         alpha: false,
-        powerPreference: lite ? "default" : "high-performance",
+        powerPreference: "default",
+        stencil: false,
+        depth: true,
+        failIfMajorPerformanceCaveat: false,
       });
     } catch (err) {
       console.error("WebGL unavailable", err);
@@ -108,17 +112,20 @@ export function LisaCharacter({
     }
     renderer.setClearColor(STAGE, 1);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.12;
+    renderer.toneMapping = lite ? THREE.NoToneMapping : THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = lite ? 1 : 1.12;
     renderer.shadowMap.enabled = !lite;
     if (!lite) renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    // Cap drawing buffer on mobile Safari (huge crash saver)
+    if (lite) {
+      renderer.setPixelRatio(1);
+    }
     renderer.domElement.style.touchAction = "none";
     mount.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(STAGE);
-    // Soft depth haze — reads more “set” than flat studio gray
-    scene.fog = new THREE.Fog(STAGE, 4.2, 11);
+    if (!lite) scene.fog = new THREE.Fog(STAGE, 4.2, 11);
 
     let pmrem: THREE.PMREMGenerator | null = null;
     if (!lite) {
@@ -136,23 +143,48 @@ export function LisaCharacter({
     camera.position.set(0, 1.25, 2.6);
     camera.lookAt(0, 1.1, 0);
 
-    // ——— Soft studio lighting (quiet key / fill / rim) ———
-    // Higher ambient, lower contrast — form without drama.
-    scene.add(new THREE.AmbientLight(0xc8c4c0, 0.38));
-    scene.add(new THREE.HemisphereLight(0xf5f0ea, 0x8a8a90, 0.42));
+    // ——— Lighting ———
+    // Lite (Safari/mobile): cheap lights that still read as soft studio
+    // Full (desktop): rich area lights + animated accents
+    scene.add(new THREE.AmbientLight(0xc8c4c0, lite ? 0.55 : 0.38));
+    scene.add(new THREE.HemisphereLight(0xf5f0ea, 0x8a8a90, lite ? 0.55 : 0.42));
 
-    // Softbox key (area) — gentle beauty wrap
-    const key = new THREE.RectAreaLight(0xfff2e4, 4.2, 2.8, 2.2);
-    key.position.set(1.15, 2.15, 1.55);
-    key.lookAt(0, 1.15, 0);
-    scene.add(key);
+    let key: THREE.RectAreaLight | THREE.DirectionalLight;
+    let fill: THREE.RectAreaLight | THREE.DirectionalLight;
+    let keySun: THREE.DirectionalLight;
+    let rim: THREE.SpotLight | null = null;
+    let kick: THREE.SpotLight | null = null;
+    let bounce: THREE.RectAreaLight | null = null;
+    let eyeCatch: THREE.PointLight | null = null;
+    let warm: THREE.PointLight | null = null;
+    let cool: THREE.PointLight | null = null;
+    let cheek: THREE.SpotLight | null = null;
 
-    // Soft shadow key — light contact without hard edges
-    const keySun = new THREE.DirectionalLight(0xffe8d2, 0.55);
-    keySun.position.set(1.6, 2.8, 1.9);
-    keySun.castShadow = !lite;
-    if (!lite) {
-      keySun.shadow.mapSize.set(2048, 2048);
+    if (lite) {
+      key = new THREE.DirectionalLight(0xfff2e4, 1.15);
+      key.position.set(1.15, 2.15, 1.55);
+      scene.add(key);
+
+      fill = new THREE.DirectionalLight(0xdde6f5, 0.55);
+      fill.position.set(-1.55, 1.35, 1.25);
+      scene.add(fill);
+
+      keySun = new THREE.DirectionalLight(0xffe8d2, 0.35);
+      keySun.position.set(1.6, 2.8, 1.9);
+      keySun.castShadow = false;
+      scene.add(keySun);
+      keySun.target.position.set(0, 1.2, 0);
+      scene.add(keySun.target);
+    } else {
+      key = new THREE.RectAreaLight(0xfff2e4, 4.2, 2.8, 2.2);
+      key.position.set(1.15, 2.15, 1.55);
+      key.lookAt(0, 1.15, 0);
+      scene.add(key);
+
+      keySun = new THREE.DirectionalLight(0xffe8d2, 0.55);
+      keySun.position.set(1.6, 2.8, 1.9);
+      keySun.castShadow = true;
+      keySun.shadow.mapSize.set(1024, 1024);
       keySun.shadow.camera.near = 0.5;
       keySun.shadow.camera.far = 12;
       keySun.shadow.camera.left = -2.5;
@@ -161,81 +193,81 @@ export function LisaCharacter({
       keySun.shadow.camera.bottom = -2.5;
       keySun.shadow.bias = -0.00025;
       keySun.shadow.normalBias = 0.04;
-      keySun.shadow.radius = 6;
+      keySun.shadow.radius = 4;
+      scene.add(keySun);
+      keySun.target.position.set(0, 1.2, 0);
+      scene.add(keySun.target);
+
+      fill = new THREE.RectAreaLight(0xdde6f5, 2.0, 2.8, 2.2);
+      fill.position.set(-1.55, 1.35, 1.25);
+      fill.lookAt(0, 1.1, 0);
+      scene.add(fill);
+
+      rim = new THREE.SpotLight(0xb8d4ff, 1.8, 14, 0.65, 0.65, 1.1);
+      rim.position.set(-0.85, 2.55, -2.1);
+      rim.target.position.set(0, 1.25, 0);
+      rim.castShadow = false;
+      scene.add(rim);
+      scene.add(rim.target);
+
+      kick = new THREE.SpotLight(0xffc9a0, 1.1, 10, 0.55, 0.7, 1.25);
+      kick.position.set(1.9, 1.7, -0.35);
+      kick.target.position.set(0, 1.2, 0);
+      scene.add(kick);
+      scene.add(kick.target);
+
+      bounce = new THREE.RectAreaLight(0xffffff, 0.55, 3.2, 1.2);
+      bounce.position.set(0.1, 0.15, 1.1);
+      bounce.lookAt(0, 1.2, 0);
+      scene.add(bounce);
+
+      eyeCatch = new THREE.PointLight(0xfff6ea, 0.22, 3.5, 2);
+      eyeCatch.position.set(0.25, 1.55, 1.85);
+      scene.add(eyeCatch);
+
+      warm = new THREE.PointLight(0xffd7b0, 0.28, 5.5, 2);
+      warm.position.set(0.95, 1.6, 1.35);
+      scene.add(warm);
+
+      cool = new THREE.PointLight(0xc5d9ff, 0.22, 5.5, 2);
+      cool.position.set(-1.05, 1.4, 1.1);
+      scene.add(cool);
+
+      cheek = new THREE.SpotLight(0xfff0e0, 0.45, 7, 0.42, 0.75, 1.35);
+      cheek.position.set(0.45, 2.15, 1.85);
+      cheek.target.position.set(0, 1.2, 0);
+      scene.add(cheek);
+      scene.add(cheek.target);
     }
-    scene.add(keySun);
-    keySun.target.position.set(0, 1.2, 0);
-    scene.add(keySun.target);
 
-    // Cool fill — almost even with key
-    const fill = new THREE.RectAreaLight(0xdde6f5, 2.0, 2.8, 2.2);
-    fill.position.set(-1.55, 1.35, 1.25);
-    fill.lookAt(0, 1.1, 0);
-    scene.add(fill);
-
-    // Soft rim — faint silhouette lift
-    const rim = new THREE.SpotLight(0xb8d4ff, 1.8, 14, 0.65, 0.65, 1.1);
-    rim.position.set(-0.85, 2.55, -2.1);
-    rim.target.position.set(0, 1.25, 0);
-    rim.castShadow = false;
-    scene.add(rim);
-    scene.add(rim.target);
-
-    // Warm kicker — barely-there edge catch
-    const kick = new THREE.SpotLight(0xffc9a0, 1.1, 10, 0.55, 0.7, 1.25);
-    kick.position.set(1.9, 1.7, -0.35);
-    kick.target.position.set(0, 1.2, 0);
-    scene.add(kick);
-    scene.add(kick.target);
-
-    // Soft bounce from below
-    const bounce = new THREE.RectAreaLight(0xffffff, 0.55, 3.2, 1.2);
-    bounce.position.set(0.1, 0.15, 1.1);
-    bounce.lookAt(0, 1.2, 0);
-    scene.add(bounce);
-
-    // Tiny eye catch
-    const eyeCatch = new THREE.PointLight(0xfff6ea, 0.22, 3.5, 2);
-    eyeCatch.position.set(0.25, 1.55, 1.85);
-    scene.add(eyeCatch);
-
-    // Quiet warm / cool accents
-    const warm = new THREE.PointLight(0xffd7b0, 0.28, 5.5, 2);
-    warm.position.set(0.95, 1.6, 1.35);
-    scene.add(warm);
-
-    const cool = new THREE.PointLight(0xc5d9ff, 0.22, 5.5, 2);
-    cool.position.set(-1.05, 1.4, 1.1);
-    scene.add(cool);
-
-    const cheek = new THREE.SpotLight(0xfff0e0, 0.45, 7, 0.42, 0.75, 1.35);
-    cheek.position.set(0.45, 2.15, 1.85);
-    cheek.target.position.set(0, 1.2, 0);
-    scene.add(cheek);
-    scene.add(cheek.target);
-
-    // Soft contact shadow
     const ground = new THREE.Mesh(
-      new THREE.PlaneGeometry(10, 10),
-      new THREE.ShadowMaterial({ opacity: 0.12, color: 0x000000 })
+      new THREE.PlaneGeometry(lite ? 6 : 10, lite ? 6 : 10),
+      lite
+        ? new THREE.MeshBasicMaterial({ color: STAGE })
+        : new THREE.ShadowMaterial({ opacity: 0.12, color: 0x000000 })
     );
     ground.rotation.x = -Math.PI / 2;
     ground.position.y = -0.05;
-    ground.receiveShadow = true;
+    ground.receiveShadow = !lite;
     scene.add(ground);
 
     const keyHome = key.position.clone();
     const fillHome = fill.position.clone();
-    const warmHome = warm.position.clone();
-    const coolHome = cool.position.clone();
-    const cheekHome = cheek.position.clone();
-    const rimHome = rim.position.clone();
-    const kickHome = kick.position.clone();
+    const warmHome = warm?.position.clone() ?? new THREE.Vector3();
+    const coolHome = cool?.position.clone() ?? new THREE.Vector3();
+    const cheekHome = cheek?.position.clone() ?? new THREE.Vector3();
+    const rimHome = rim?.position.clone() ?? new THREE.Vector3();
+    const kickHome = kick?.position.clone() ?? new THREE.Vector3();
     const keySunHome = keySun.position.clone();
     const lightAim = new THREE.Vector3(0, 1.2, 0);
     const tmpAim = new THREE.Vector3();
 
     const applyLiveLights = (t: number) => {
+      if (lite) return; // static lights on Safari — huge CPU/GPU save
+      if (!(key instanceof THREE.RectAreaLight)) return;
+      if (!(fill instanceof THREE.RectAreaLight)) return;
+      if (!rim || !kick || !bounce || !eyeCatch || !warm || !cool || !cheek) return;
+
       const breath = 0.5 + 0.5 * Math.sin(t * 0.55);
       const breath2 = 0.5 + 0.5 * Math.sin(t * 0.82 + 1.1);
       const breath3 = 0.5 + 0.5 * Math.sin(t * 0.4 + 2.4);
@@ -309,7 +341,6 @@ export function LisaCharacter({
       keySun.target.position.copy(tmpAim);
       keySun.target.updateMatrixWorld();
 
-      // Gentle exposure pulse — filmic, not disco
       renderer.toneMappingExposure =
         1.05 + breath * 0.05 + Math.abs(mx) * 0.02;
       scene.environmentIntensity = 0.32 + breath2 * 0.08;
@@ -364,7 +395,7 @@ export function LisaCharacter({
     const resize = () => {
       const w = mount.clientWidth || window.innerWidth;
       const h = mount.clientHeight || window.innerHeight;
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, lite ? 1 : 2));
+      renderer.setPixelRatio(lite ? 1 : Math.min(window.devicePixelRatio || 1, 1.75));
       renderer.setSize(w, h, false);
       camera.aspect = w / Math.max(h, 1);
       camera.updateProjectionMatrix();
@@ -557,8 +588,8 @@ export function LisaCharacter({
           const mesh = obj as THREE.SkinnedMesh;
           if (!(mesh as THREE.Mesh).isMesh) return;
           mesh.frustumCulled = false;
-          mesh.castShadow = true;
-          mesh.receiveShadow = true;
+          mesh.castShadow = !lite;
+          mesh.receiveShadow = !lite;
           if (mesh.isSkinnedMesh && mesh.skeleton) skeleton = mesh.skeleton;
           const mats = Array.isArray(mesh.material)
             ? mesh.material
@@ -649,7 +680,7 @@ export function LisaCharacter({
           lightAim.set(headWorld.x, headWorld.y, headWorld.z);
           key.lookAt(lightAim);
           fill.lookAt(lightAim);
-          cheek.target.position.copy(lightAim);
+          if (cheek) cheek.target.position.copy(lightAim);
           framed = true;
         };
         framePortraitFn = framePortrait;
@@ -663,7 +694,23 @@ export function LisaCharacter({
       (err) => console.error("Failed to load character", err)
     );
 
-    const tick = () => {
+    let lastFrame = 0;
+    const minFrameMs = lite ? 1000 / 28 : 0;
+
+    const onContextLost = (e: Event) => {
+      e.preventDefault();
+      disposed = true;
+      cancelAnimationFrame(raf);
+    };
+    renderer.domElement.addEventListener("webglcontextlost", onContextLost, false);
+
+    const tick = (now = performance.now()) => {
+      if (disposed) return;
+      raf = requestAnimationFrame(tick);
+      if (document.hidden) return;
+      if (minFrameMs && now - lastFrame < minFrameMs) return;
+      lastFrame = now;
+
       const dt = Math.min(clock.getDelta(), 0.05);
       const movedDist = lookNdc.distanceTo(prevLook);
       if (movedDist > STILL_EPS) lookMoved = true;
@@ -697,8 +744,12 @@ export function LisaCharacter({
 
       applyLiveLights(clock.elapsedTime);
 
-      renderer.render(scene, camera);
-      raf = requestAnimationFrame(tick);
+      try {
+        renderer.render(scene, camera);
+      } catch {
+        disposed = true;
+        cancelAnimationFrame(raf);
+      }
     };
     tick();
 
@@ -712,13 +763,20 @@ export function LisaCharacter({
       renderer.domElement.removeEventListener("pointermove", onDragMove);
       renderer.domElement.removeEventListener("pointerup", onDragUp);
       renderer.domElement.removeEventListener("pointercancel", onDragUp);
+      renderer.domElement.removeEventListener("webglcontextlost", onContextLost);
       window.removeEventListener("resize", resize);
       ro.disconnect();
       if (renderer.domElement.parentElement === mount) {
         mount.removeChild(renderer.domElement);
       }
-      renderer.dispose();
-      pmrem?.dispose();
+      try {
+        renderer.dispose();
+        pmrem?.dispose();
+        ground.geometry.dispose();
+        (ground.material as THREE.Material).dispose();
+      } catch {
+        /* ignore */
+      }
     };
   }, []);
 

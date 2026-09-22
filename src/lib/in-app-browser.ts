@@ -30,6 +30,21 @@ export function isIOS(ua = typeof navigator !== "undefined" ? navigator.userAgen
   );
 }
 
+/**
+ * Safari / iOS / Android / in-app WebViews crash on heavy WebGL.
+ * Use a lighter GPU profile that keeps the same look.
+ */
+export function needsLiteGpu(): boolean {
+  if (typeof window === "undefined") return true;
+  if (isInAppBrowser()) return true;
+  if (isIOS()) return true;
+  if (isAndroid()) return true;
+  // Low-memory hint (Safari iOS 15+)
+  const mem = (navigator as Navigator & { deviceMemory?: number }).deviceMemory;
+  if (typeof mem === "number" && mem > 0 && mem <= 4) return true;
+  return false;
+}
+
 export function canUseWebGL(): boolean {
   if (typeof document === "undefined") return false;
   try {
