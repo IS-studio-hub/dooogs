@@ -322,6 +322,10 @@ function isOffTopic(text: string): boolean {
   return !doggy;
 }
 
+export function resolveBreedId(text: string): string | null {
+  return detectBreed(text);
+}
+
 export function getBreedKnowledgeSnippet(
   text: string,
   locale: "en" | "fr"

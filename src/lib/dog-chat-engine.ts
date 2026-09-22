@@ -1,7 +1,7 @@
 /**
  * Dooogs! dog-chat engine — domain chatbot best practices (2026):
- * Intent → retrieve breed/topic knowledge → grounded reply (LLM or composed)
- * → speakable text (no markdown) → suggestions.
+ * Understand (typos/slang/intent) → retrieve breed knowledge → grounded reply
+ * → speakable text → suggestions.
  *
  * Cascade for GitHub Pages:
  * 1) Local / tunneled Ollama (free, when available)
@@ -11,13 +11,15 @@
  */
 
 import { isWeakDogReply } from "@/lib/dog-expert";
-import {
-  getBreedKnowledgeSnippet,
-  offlineDogReply,
-} from "@/lib/dog-offline";
+import { offlineDogReply } from "@/lib/dog-offline";
 import { apiUrl } from "@/lib/api-url";
 import { tryBrowserOllama } from "@/lib/browser-ollama";
 import { chatWithFreeLlm } from "@/lib/free-llm";
+import {
+  detectTopic,
+  messagesForLlm,
+  understandUserTurn,
+} from "@/lib/smart-understand";
 
 export type ChatMessage = { role: "user" | "assistant"; content: string };
 
@@ -28,6 +30,8 @@ export type DogChatTurn = {
   breedId?: string | null;
   topic?: string | null;
 };
+
+export { detectTopic };
 
 /** True only for real continuations — NOT "tell me about X" / "what about Labs". */
 export function isSoftFollowUp(text: string, namedBreedInMessage: boolean): boolean {
@@ -44,22 +48,6 @@ export function isSoftFollowUp(text: string, namedBreedInMessage: boolean): bool
   );
 }
 
-export function detectTopic(
-  text: string
-): "training" | "food" | "health" | "grooming" | "apartment" | "choose" | "toxic" | null {
-  const t = text.toLowerCase();
-  if (/toxic|chocolat|xylitol|grape|raisin|onion|oignon|poison|never eat|ne jamais/.test(t))
-    return "toxic";
-  if (/train|éduc|puppy|chiot|leash|laisse|bark|aboie|obedi|sociali/.test(t)) return "training";
-  if (/food|diet|feed|eat|kibble|croquette|aliment|friandise|treat/.test(t)) return "food";
-  if (/groom|toilet|coat|poil|shed|mue|brush/.test(t)) return "grooming";
-  if (/apart|appartement|flat|condo|small space|petit espace/.test(t)) return "apartment";
-  if (/health|santé|vet|véto|hip|dysplas|allerg/.test(t)) return "health";
-  if (/choose|choisir|which breed|quelle race|best dog|bon chien|first dog|premier/.test(t))
-    return "choose";
-  return null;
-}
-
 /**
  * One conversational turn for Dooogs!.
  * Prefer live AI when grounded; otherwise compose from the dog KB.
@@ -71,13 +59,12 @@ export async function runDogChatTurn(
   opts?: { signal?: AbortSignal; timeoutMs?: number }
 ): Promise<DogChatTurn> {
   const text = userText.trim();
-  const nextMessages: ChatMessage[] = [
-    ...history,
-    { role: "user", content: text },
-  ];
+  const understood = understandUserTurn(text, locale, history);
+  const llmMessages = messagesForLlm(history, understood);
+  const nextMessages: ChatMessage[] = [...history, { role: "user", content: text }];
   const timeoutMs = opts?.timeoutMs ?? 28_000;
-  const snippet = getBreedKnowledgeSnippet(text, locale);
-  const topic = detectTopic(text);
+  const snippet = understood.contextBlock;
+  const topic = understood.topic;
 
   let reply = "";
   let suggestions: string[] = [];
@@ -86,12 +73,15 @@ export async function runDogChatTurn(
 
   // 1) Ollama (local or public tunnel) — free Llama-class models
   try {
-    const ollama = await tryBrowserOllama(nextMessages, locale);
+    const ollama = await tryBrowserOllama(llmMessages, locale, {
+      context: snippet,
+    });
     if (ollama?.reply && !isWeakDogReply(text, ollama.reply)) {
       return {
         reply: ollama.reply,
         suggestions: ollama.suggestions,
         source: ollama.source,
+        breedId: understood.breedId,
         topic,
       };
     }
@@ -108,16 +98,17 @@ export async function runDogChatTurn(
   // 2) Free cloud LLM (works on GitHub Pages with no keys)
   if (!fromLiveAi || isWeakDogReply(text, reply)) {
     try {
-      const free = await chatWithFreeLlm(nextMessages, locale, {
+      const free = await chatWithFreeLlm(llmMessages, locale, {
         signal: opts?.signal,
         timeoutMs: Math.min(timeoutMs, 28_000),
-        context: snippet || undefined,
+        context: snippet,
       });
       if (free?.reply && !isWeakDogReply(text, free.reply)) {
         return {
           reply: free.reply,
           suggestions: free.suggestions,
           source: free.source,
+          breedId: understood.breedId,
           topic,
         };
       }
@@ -143,7 +134,7 @@ export async function runDogChatTurn(
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          messages: nextMessages,
+          messages: llmMessages,
           locale,
           context: snippet || undefined,
           topic: topic || undefined,
@@ -166,6 +157,7 @@ export async function runDogChatTurn(
             reply: workerReply,
             suggestions: Array.isArray(data.suggestions) ? data.suggestions : [],
             source: workerSource,
+            breedId: understood.breedId,
             topic,
           };
         }
@@ -185,7 +177,12 @@ export async function runDogChatTurn(
   }
 
   if (!fromLiveAi || !reply || isWeakDogReply(text, reply)) {
-    const offline = offlineDogReply(text, locale, nextMessages);
+    // Prefer cleaned/interpreted text so offline KB catches typos like "coli"
+    const offline = offlineDogReply(
+      understood.cleaned || understood.interpreted || text,
+      locale,
+      nextMessages
+    );
     if (
       !reply ||
       !fromLiveAi ||
@@ -205,5 +202,11 @@ export async function runDogChatTurn(
         : ["Training tips", "Diet & foods", "Another breed"];
   }
 
-  return { reply, suggestions, source, topic };
+  return {
+    reply,
+    suggestions,
+    source,
+    breedId: understood.breedId,
+    topic,
+  };
 }

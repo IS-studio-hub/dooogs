@@ -40,13 +40,19 @@ function ollamaBaseUrl(): string | null {
 
 export async function tryBrowserOllama(
   messages: Msg[],
-  locale: "en" | "fr"
+  locale: "en" | "fr",
+  opts?: { context?: string }
 ): Promise<BrowserOllamaResult> {
   const base = ollamaBaseUrl();
   if (!base) return null;
 
   const model = process.env.NEXT_PUBLIC_OLLAMA_CHAT_MODEL || DEFAULT_MODEL;
-  const system = `${dogExpertSystemPrompt(locale)}\n\n${suggestionSystemExtra(locale)}`;
+  const extra = opts?.context
+    ? locale === "fr"
+      ? `\n\nCONTEXTE COMPRIS:\n${opts.context.slice(0, 1400)}`
+      : `\n\nUNDERSTANDING CONTEXT:\n${opts.context.slice(0, 1400)}`
+    : "";
+  const system = `${dogExpertSystemPrompt(locale)}${extra}\n\n${suggestionSystemExtra(locale)}`;
 
   const ctrl = new AbortController();
   // Phones shouldn't hang on a dead tunnel — fail fast to worker/offline answers

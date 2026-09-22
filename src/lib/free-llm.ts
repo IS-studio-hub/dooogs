@@ -41,8 +41,8 @@ export async function chatWithFreeLlm(
     opts?.context || getBreedKnowledgeSnippet(lastUser, locale) || "";
   const rag = snippet
     ? locale === "fr"
-      ? `\n\nCONNAISSANCES RÉCUPÉRÉES (source de vérité — base-toi dessus):\n${snippet.slice(0, 900)}`
-      : `\n\nRETRIEVED KNOWLEDGE (source of truth — ground your answer here):\n${snippet.slice(0, 900)}`
+      ? `\n\nCONTEXTE COMPRIS (intention + faits):\n${snippet.slice(0, 1400)}`
+      : `\n\nUNDERSTANDING CONTEXT (intent + facts):\n${snippet.slice(0, 1400)}`
     : "";
   const system = `${dogExpertSystemPrompt(locale)}${rag}\n\n${suggestionSystemExtra(locale)}`;
 
