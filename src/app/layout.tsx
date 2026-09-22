@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
-import Script from "next/script";
 import { Schibsted_Grotesk, Outfit } from "next/font/google";
+import { LyticoAnalytics } from "@/components/layout/LyticoAnalytics";
 import "./globals.css";
 
 const ui = Schibsted_Grotesk({
@@ -79,11 +79,7 @@ export default function RootLayout({
       </head>
       <body>
         {children}
-        <Script
-          src="https://lytico-production.up.railway.app/lytico.js"
-          strategy="afterInteractive"
-          data-site="lt_dooogs_is02"
-        />
+        <LyticoAnalytics />
       </body>
     </html>
   );

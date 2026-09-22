@@ -140,9 +140,24 @@ html[data-theme="lisa"] body {
   width: 100%;
 }
 
+/* Facebook / LinkedIn WebViews: avoid position:fixed body (crash-prone) */
+html.is-inapp body {
+  position: relative;
+  inset: auto;
+  overflow-x: clip;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 html[data-theme="lisa"] #main-content {
   height: 100%;
   overflow: hidden;
+}
+
+html.is-inapp #main-content {
+  min-height: var(--app-height, 100dvh);
+  height: auto;
+  overflow: visible;
 }
 
 *,

@@ -1,13 +1,22 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
-import { LisaCharacter, type CharacterClip } from "./LisaCharacter";
-import { canUseWebGL } from "@/lib/in-app-browser";
+import type { CharacterClip } from "./LisaCharacter";
+import { canUseWebGL, isInAppBrowser } from "@/lib/in-app-browser";
 
 /**
- * Dooogs! media stage — 3D character.
- * Desktop: mouse look. Mobile/tablet: device-orientation look.
- * Skips WebGL when the browser cannot create a context (common in weak WebViews).
+ * Lazy-load the heavy Three.js character only in real browsers.
+ * Facebook / LinkedIn WebViews OOM-crash (“A problem repeatedly occurred”)
+ * if we mount WebGL on first paint.
+ */
+const LisaCharacter = dynamic(
+  () => import("./LisaCharacter").then((m) => m.LisaCharacter),
+  { ssr: false, loading: () => <div className="c-lisa_stage" aria-hidden="true" /> }
+);
+
+/**
+ * Dooogs! media stage — 3D character when safe; plain stage in in-app browsers.
  */
 export function LisaMedia({
   clip = "idle",
@@ -18,17 +27,30 @@ export function LisaMedia({
   clip?: CharacterClip;
   useCharacter?: boolean;
 }) {
-  const [ok, setOk] = useState(true);
+  const [ready, setReady] = useState(false);
+  const [ok, setOk] = useState(false);
 
   useEffect(() => {
     if (!useCharacter) {
       setOk(false);
+      setReady(true);
       return;
     }
-    setOk(canUseWebGL());
+    // Never start WebGL inside Facebook / LinkedIn / Instagram WebViews
+    if (isInAppBrowser()) {
+      setOk(false);
+      setReady(true);
+      return;
+    }
+    // Defer one frame so the shell paints before GPU work
+    const id = window.requestAnimationFrame(() => {
+      setOk(canUseWebGL());
+      setReady(true);
+    });
+    return () => window.cancelAnimationFrame(id);
   }, [useCharacter]);
 
-  if (!useCharacter || !ok) {
+  if (!ready || !useCharacter || !ok) {
     return <div className="c-lisa_stage" aria-hidden="true" />;
   }
 
