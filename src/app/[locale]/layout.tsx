@@ -1,6 +1,7 @@
 import { CookieConsent } from "@/components/layout/CookieConsent";
 import { Header } from "@/components/layout/Header";
 import { HtmlLang } from "@/components/layout/HtmlLang";
+import { InAppBrowserBanner } from "@/components/layout/InAppBrowserBanner";
 import { Preloader } from "@/components/layout/Preloader";
 import type { Locale } from "@/lib/lisa-types";
 import { notFound } from "next/navigation";
@@ -34,6 +35,7 @@ export default async function LocaleLayout({
       <main id="main-content" tabIndex={-1}>
         {children}
       </main>
+      <InAppBrowserBanner locale={locale} />
       <CookieConsent locale={locale} />
     </>
   );

@@ -8,6 +8,7 @@ import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment
 import { RectAreaLightUniformsLib } from "three/examples/jsm/lights/RectAreaLightUniformsLib.js";
 
 import { withBase } from "@/lib/base-path";
+import { isInAppBrowser } from "@/lib/in-app-browser";
 
 export type CharacterClip = "idle" | "talk" | "wave";
 
@@ -86,19 +87,31 @@ export function LisaCharacter({
     const mount = mountRef.current;
     if (!mount) return;
 
-    RectAreaLightUniformsLib.init();
+    const lite = isInAppBrowser();
 
-    const renderer = new THREE.WebGLRenderer({
-      antialias: true,
-      alpha: false,
-      powerPreference: "high-performance",
-    });
+    try {
+      RectAreaLightUniformsLib.init();
+    } catch {
+      /* ignore */
+    }
+
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({
+        antialias: !lite,
+        alpha: false,
+        powerPreference: lite ? "default" : "high-performance",
+      });
+    } catch (err) {
+      console.error("WebGL unavailable", err);
+      return;
+    }
     renderer.setClearColor(STAGE, 1);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.12;
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.enabled = !lite;
+    if (!lite) renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.domElement.style.touchAction = "none";
     mount.appendChild(renderer.domElement);
 
@@ -107,10 +120,17 @@ export function LisaCharacter({
     // Soft depth haze — reads more “set” than flat studio gray
     scene.fog = new THREE.Fog(STAGE, 4.2, 11);
 
-    const pmrem = new THREE.PMREMGenerator(renderer);
-    const env = pmrem.fromScene(new RoomEnvironment(), 0.02).texture;
-    scene.environment = env;
-    scene.environmentIntensity = 0.38;
+    let pmrem: THREE.PMREMGenerator | null = null;
+    if (!lite) {
+      try {
+        pmrem = new THREE.PMREMGenerator(renderer);
+        const env = pmrem.fromScene(new RoomEnvironment(), 0.02).texture;
+        scene.environment = env;
+        scene.environmentIntensity = 0.38;
+      } catch {
+        /* env map optional */
+      }
+    }
 
     const camera = new THREE.PerspectiveCamera(36, 1, 0.05, 40);
     camera.position.set(0, 1.25, 2.6);
@@ -130,17 +150,19 @@ export function LisaCharacter({
     // Soft shadow key — light contact without hard edges
     const keySun = new THREE.DirectionalLight(0xffe8d2, 0.55);
     keySun.position.set(1.6, 2.8, 1.9);
-    keySun.castShadow = true;
-    keySun.shadow.mapSize.set(2048, 2048);
-    keySun.shadow.camera.near = 0.5;
-    keySun.shadow.camera.far = 12;
-    keySun.shadow.camera.left = -2.5;
-    keySun.shadow.camera.right = 2.5;
-    keySun.shadow.camera.top = 2.5;
-    keySun.shadow.camera.bottom = -2.5;
-    keySun.shadow.bias = -0.00025;
-    keySun.shadow.normalBias = 0.04;
-    keySun.shadow.radius = 6;
+    keySun.castShadow = !lite;
+    if (!lite) {
+      keySun.shadow.mapSize.set(2048, 2048);
+      keySun.shadow.camera.near = 0.5;
+      keySun.shadow.camera.far = 12;
+      keySun.shadow.camera.left = -2.5;
+      keySun.shadow.camera.right = 2.5;
+      keySun.shadow.camera.top = 2.5;
+      keySun.shadow.camera.bottom = -2.5;
+      keySun.shadow.bias = -0.00025;
+      keySun.shadow.normalBias = 0.04;
+      keySun.shadow.radius = 6;
+    }
     scene.add(keySun);
     keySun.target.position.set(0, 1.2, 0);
     scene.add(keySun.target);
@@ -326,7 +348,9 @@ export function LisaCharacter({
 
     let framePortraitFn: (() => void) | null = null;
 
-    const useDeviceSensors = isMobileOrTabletDevice();
+    const isTouchDevice = isMobileOrTabletDevice();
+    // Sensors are unreliable in LinkedIn / in-app browsers — touch-drag still works.
+    const useDeviceSensors = isTouchDevice && !lite;
     let orientBase: { beta: number; gamma: number } | null = null;
     let orientListening = false;
 
@@ -340,7 +364,7 @@ export function LisaCharacter({
     const resize = () => {
       const w = mount.clientWidth || window.innerWidth;
       const h = mount.clientHeight || window.innerHeight;
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, lite ? 1 : 2));
       renderer.setSize(w, h, false);
       camera.aspect = w / Math.max(h, 1);
       camera.updateProjectionMatrix();
@@ -448,16 +472,18 @@ export function LisaCharacter({
       }
     };
 
-    if (useDeviceSensors) {
+    if (isTouchDevice) {
       renderer.domElement.addEventListener("pointerdown", onDragDown);
       renderer.domElement.addEventListener("pointermove", onDragMove);
       renderer.domElement.addEventListener("pointerup", onDragUp);
       renderer.domElement.addEventListener("pointercancel", onDragUp);
 
-      if (needsIosMotionPermission()) {
-        setShowMotionPrompt(true);
-      } else {
-        startOrientationListening();
+      if (useDeviceSensors) {
+        if (needsIosMotionPermission()) {
+          setShowMotionPrompt(true);
+        } else {
+          startOrientationListening();
+        }
       }
     } else {
       window.addEventListener("pointermove", onMouseMove);
@@ -692,7 +718,7 @@ export function LisaCharacter({
         mount.removeChild(renderer.domElement);
       }
       renderer.dispose();
-      pmrem.dispose();
+      pmrem?.dispose();
     };
   }, []);
 

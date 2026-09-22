@@ -252,6 +252,9 @@ async function speakWithSharedMp3(
   if (signal.stopped) return false;
   const audio = getSharedAudio();
   const objectUrl = URL.createObjectURL(blob);
+  // In-app browsers (LinkedIn etc.) often never fire `ended` — never wait forever.
+  const PLAYBACK_TIMEOUT_MS = 20_000;
+  let timer = 0;
   try {
     audio.onended = null;
     audio.onerror = null;
@@ -261,16 +264,49 @@ async function speakWithSharedMp3(
     audio.currentTime = 0;
     audio.volume = 1;
     opts?.onStart?.();
-    await audio.play();
+    const playPromise = audio.play();
+    await Promise.race([
+      playPromise,
+      new Promise<never>((_, reject) => {
+        timer = window.setTimeout(
+          () => reject(new Error("audio_play_timeout")),
+          4_000
+        );
+      }),
+    ]);
+    window.clearTimeout(timer);
+    timer = 0;
+
     await new Promise<void>((resolve, reject) => {
-      audio.onended = () => resolve();
-      audio.onerror = () => reject(new Error("audio_error"));
+      const finish = (err?: Error) => {
+        window.clearTimeout(timer);
+        audio.onended = null;
+        audio.onerror = null;
+        if (err) reject(err);
+        else resolve();
+      };
+      audio.onended = () => finish();
+      audio.onerror = () => finish(new Error("audio_error"));
+      timer = window.setTimeout(() => {
+        try {
+          audio.pause();
+        } catch {
+          /* ignore */
+        }
+        finish(new Error("audio_ended_timeout"));
+      }, PLAYBACK_TIMEOUT_MS);
     });
     opts?.onEnd?.();
     return true;
   } catch {
+    try {
+      audio.pause();
+    } catch {
+      /* ignore */
+    }
     return false;
   } finally {
+    window.clearTimeout(timer);
     window.setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
   }
 }
@@ -350,24 +386,33 @@ export function speakDooogs(
   const done = (async () => {
     if (!text || signal.stopped) return;
 
-    const blob = await fetchTtsBlob(text, locale, abort.signal, 6000);
-    if (blob && !signal.stopped) {
-      const played = await speakWithSharedMp3(blob, signal, {
+    const hardCap = window.setTimeout(() => {
+      if (!ended) stop();
+    }, 28_000);
+
+    try {
+      const blob = await fetchTtsBlob(text, locale, abort.signal, 6000);
+      if (blob && !signal.stopped) {
+        const played = await speakWithSharedMp3(blob, signal, {
+          onStart: opts?.onStart,
+          onEnd: endOnce,
+        });
+        if (played || signal.stopped) return;
+      }
+
+      if (signal.stopped) return;
+
+      const ok = await speakWithBrowser(text, locale, signal, {
         onStart: opts?.onStart,
         onEnd: endOnce,
       });
-      if (played || signal.stopped) return;
-    }
-
-    if (signal.stopped) return;
-
-    const ok = await speakWithBrowser(text, locale, signal, {
-      onStart: opts?.onStart,
-      onEnd: endOnce,
-    });
-    if (!ok && !signal.stopped && !ended) {
-      opts?.onError?.();
-      endOnce();
+      if (!ok && !signal.stopped && !ended) {
+        opts?.onError?.();
+        endOnce();
+      }
+    } finally {
+      window.clearTimeout(hardCap);
+      if (!ended) endOnce();
     }
   })();
 

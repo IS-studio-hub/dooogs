@@ -138,6 +138,11 @@ export function LisaApp({
       voiceStopRef.current?.();
       const ambient = audioRef.current;
       setSpeaking(true);
+      // LinkedIn / in-app WebViews can hang on audio — never leave UI locked.
+      const speakWatchdog = window.setTimeout(() => {
+        voiceStopRef.current?.();
+        setSpeaking(false);
+      }, 30_000);
       const { stop, done } = speakDooogs(clean, locale, {
         onStart: () => {
           if (ambient) ambient.volume = 0.06;
@@ -152,6 +157,7 @@ export function LisaApp({
         setSpeaking(false);
       };
       return done.finally(() => {
+        window.clearTimeout(speakWatchdog);
         setSpeaking(false);
       });
     },

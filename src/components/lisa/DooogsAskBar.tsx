@@ -4,6 +4,7 @@ import clsx from "clsx";
 import { useEffect, useRef, useState } from "react";
 import type { Locale } from "@/lib/lisa-types";
 import { unlockDooogsAudio } from "@/lib/dooogs-voice";
+import { isInAppBrowser } from "@/lib/in-app-browser";
 
 type BrowserRec = {
   lang: string;
@@ -172,6 +173,18 @@ export function DooogsAskBar({
   function startConversationListen() {
     if (disabledRef.current || !conversationRef.current) return;
     if (browserRecRef.current) return;
+
+    // LinkedIn / in-app WebViews often expose a broken SpeechRecognition that
+    // ends immediately — avoid restart loops; ask the user to type instead.
+    if (isInAppBrowser()) {
+      notice(
+        locale === "fr"
+          ? "Dans LinkedIn, tape ta question — ouvre Safari/Chrome pour la voix."
+          : "In LinkedIn, please type your question — open Safari/Chrome for voice."
+      );
+      endConversation();
+      return;
+    }
 
     const Ctor = getSpeechRecognitionCtor();
     if (!Ctor) {
