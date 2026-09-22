@@ -3,19 +3,40 @@
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import type { CharacterClip } from "./LisaCharacter";
-import { canUseWebGL } from "@/lib/in-app-browser";
+import { canUseWebGL, shouldAvoidWebGL } from "@/lib/in-app-browser";
+import { withBase } from "@/lib/base-path";
 
 /**
- * Lazy-load Three.js after first paint so Safari never OOM-crashes on boot.
- * Same character experience — just deferred + GPU-safe inside LisaCharacter.
+ * Lazy-load Three.js only outside Facebook/LinkedIn/Instagram WebViews.
+ * Those browsers crash (“A problem repeatedly occurred”) if WebGL starts.
  */
 const LisaCharacter = dynamic(
   () => import("./LisaCharacter").then((m) => m.LisaCharacter),
-  { ssr: false, loading: () => <div className="c-lisa_stage" aria-hidden="true" /> }
+  {
+    ssr: false,
+    loading: () => <StaticStage />,
+  }
 );
 
+function StaticStage() {
+  return (
+    <div className="c-lisa_stage c-lisa_stage-static" aria-hidden="true">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        className="c-lisa_stage-mark"
+        src={withBase("/assets/images/brand/dooogs-mark.png")}
+        alt=""
+        width={160}
+        height={160}
+        decoding="async"
+      />
+    </div>
+  );
+}
+
 /**
- * Dooogs! media stage — 3D character on every browser that supports WebGL.
+ * Dooogs! media stage.
+ * Real browsers: 3D character. Facebook/etc: static branded stage + chat UI.
  */
 export function LisaMedia({
   clip = "idle",
@@ -26,19 +47,15 @@ export function LisaMedia({
   clip?: CharacterClip;
   useCharacter?: boolean;
 }) {
-  const [ready, setReady] = useState(false);
-  const [ok, setOk] = useState(false);
+  const [mode, setMode] = useState<"loading" | "static" | "3d">("loading");
 
   useEffect(() => {
-    if (!useCharacter) {
-      setOk(false);
-      setReady(true);
+    if (!useCharacter || shouldAvoidWebGL()) {
+      setMode("static");
       return;
     }
-    // Wait for idle so the shell + ask bar paint first (critical for Safari)
     const start = () => {
-      setOk(canUseWebGL());
-      setReady(true);
+      setMode(canUseWebGL() ? "3d" : "static");
     };
     let idleId = 0;
     let timeoutId = 0;
@@ -48,9 +65,9 @@ export function LisaMedia({
       }
     ).requestIdleCallback;
     if (typeof ric === "function") {
-      idleId = ric(start, { timeout: 900 });
+      idleId = ric(start, { timeout: 800 });
     } else {
-      timeoutId = window.setTimeout(start, 250);
+      timeoutId = window.setTimeout(start, 200);
     }
     return () => {
       if (idleId && "cancelIdleCallback" in window) {
@@ -62,8 +79,8 @@ export function LisaMedia({
     };
   }, [useCharacter]);
 
-  if (!ready || !useCharacter || !ok) {
-    return <div className="c-lisa_stage" aria-hidden="true" />;
+  if (mode !== "3d") {
+    return <StaticStage />;
   }
 
   return <LisaCharacter clip={clip} />;

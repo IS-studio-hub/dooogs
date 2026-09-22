@@ -162,6 +162,35 @@ html.is-ios #main-content {
   overflow: visible;
 }
 
+/* In-app (Facebook etc.): simpler sheet — chat always reachable */
+@media (max-width: 1023px) {
+  html.is-inapp .c-lisa {
+    min-height: var(--app-height, 100dvh);
+    height: var(--app-height, 100dvh);
+  }
+
+  html.is-inapp .c-lisa.is-sheet-open,
+  html.is-inapp .c-lisa.is-sheet-closed {
+    --lisa-sheet-h: min(58vh, 32rem);
+  }
+
+  html.is-inapp .c-lisa_main {
+    height: var(--lisa-sheet-h, 58vh);
+    max-height: 70vh;
+  }
+
+  html.is-inapp .c-lisa_sheet-body {
+    display: block !important;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  html.is-inapp .c-inapp {
+    bottom: calc(0.65rem + env(safe-area-inset-bottom, 0px));
+    z-index: 10050;
+  }
+}
+
 *,
 *::before,
 *::after {
@@ -605,6 +634,22 @@ html:not(.has-menu-opened) .c-menu {
   height: 100%;
   object-fit: cover;
   object-position: center center;
+}
+
+/* Facebook / in-app: branded static stage (no WebGL) */
+.c-lisa_stage-static {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(165deg, #d8d8d8 0%, #c9c9c9 45%, #bdbdbd 100%);
+}
+
+.c-lisa_stage-static .c-lisa_stage-mark {
+  width: min(42vw, 11rem);
+  height: auto;
+  object-fit: contain;
+  opacity: 0.92;
+  filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.12));
 }
 
 .c-lisa_main {

@@ -12,22 +12,22 @@ import {
 
 const copy = {
   en: {
-    text: "This in-app browser limits 3D and sound. Open in Safari or Chrome for the full experience.",
+    text: "For the full 3D dog experience, open this page in Safari or Chrome. Chat still works here.",
     open: "Open in browser",
     copyLink: "Copy link",
     copied: "Link copied — paste it in Safari or Chrome",
-    tipIos: "Or tap ⋯ / Share → Open in Safari",
-    tipAndroid: "Or tap ⋮ → Open in Chrome / Browser",
-    dismiss: "Dismiss",
+    tipIos: "Tip: tap ⋯ → Open in Safari",
+    tipAndroid: "Tip: tap ⋮ → Open in Chrome",
+    dismiss: "Keep chatting here",
   },
   fr: {
-    text: "Ce navigateur intégré limite la 3D et le son. Ouvre Safari ou Chrome pour l’expérience complète.",
+    text: "Pour la 3D complète, ouvre cette page dans Safari ou Chrome. Le chat marche déjà ici.",
     open: "Ouvrir dans le navigateur",
     copyLink: "Copier le lien",
     copied: "Lien copié — colle-le dans Safari ou Chrome",
-    tipIos: "Ou appuie sur ⋯ / Partager → Ouvrir dans Safari",
-    tipAndroid: "Ou appuie sur ⋮ → Ouvrir dans Chrome",
-    dismiss: "Fermer",
+    tipIos: "Astuce: ⋯ → Ouvrir dans Safari",
+    tipAndroid: "Astuce: ⋮ → Ouvrir dans Chrome",
+    dismiss: "Continuer le chat ici",
   },
 } as const;
 
@@ -86,10 +86,8 @@ export function InAppBrowserBanner({ locale }: { locale: Locale }) {
   async function openExternal(e: MouseEvent | TouchEvent) {
     e.preventDefault();
     e.stopPropagation();
-    // Always copy first so the user can paste if the WebView blocks escape
     void copyTextToClipboard(url);
     const tried = tryOpenInExternalBrowser(url);
-    // If still here after a beat, show how to leave the in-app browser
     window.setTimeout(() => {
       setHint(tried ? tip : t.copied);
       setCopied(true);

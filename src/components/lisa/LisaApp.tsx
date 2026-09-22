@@ -18,6 +18,7 @@ import { isSafeHttpUrl, sanitizeDialogHtml, stripHtml } from "@/lib/safe-html";
 import { DooogsAskBar } from "./DooogsAskBar";
 import { LisaDialog } from "./LisaDialog";
 import { LisaMedia } from "./LisaMedia";
+import { isInAppBrowser } from "@/lib/in-app-browser";
 
 type HistoryEntry = {
   id: string;
@@ -302,6 +303,14 @@ export function LisaApp({
       )
     );
   }, [content]);
+
+  // Facebook / LinkedIn: keep the chat sheet open so the ask bar is always usable
+  useEffect(() => {
+    if (isInAppBrowser()) {
+      setSheetOpen(true);
+      setExpanded(true);
+    }
+  }, []);
 
   useEffect(() => {
     document.title = documentTitle;

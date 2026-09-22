@@ -5,7 +5,7 @@
 export function isInAppBrowser(ua = typeof navigator !== "undefined" ? navigator.userAgent : ""): boolean {
   if (!ua) return false;
   if (
-    /LinkedIn|LinkedInApp|FBAN|FBAV|Instagram|Line\/|Twitter|TikTok|Snapchat|MicroMessenger|BytedanceWebview|GSA\//i.test(
+    /LinkedIn|LinkedInApp|FBAN|FBAV|FB_IAB|FBIOS|Instagram|Line\/|Twitter|TikTok|Snapchat|MicroMessenger|BytedanceWebview|GSA\//i.test(
       ua
     )
   ) {
@@ -14,6 +14,12 @@ export function isInAppBrowser(ua = typeof navigator !== "undefined" ? navigator
   // iOS WebView that isn't Safari (common for LinkedIn / Mail / etc.)
   const ios = /iPhone|iPad|iPod/i.test(ua);
   if (ios && /AppleWebKit/i.test(ua) && !/Safari\//i.test(ua)) return true;
+  return false;
+}
+
+/** Facebook / Instagram / LinkedIn — never mount WebGL (crashes the page). */
+export function shouldAvoidWebGL(ua = typeof navigator !== "undefined" ? navigator.userAgent : ""): boolean {
+  if (isInAppBrowser(ua)) return true;
   return false;
 }
 
@@ -31,15 +37,13 @@ export function isIOS(ua = typeof navigator !== "undefined" ? navigator.userAgen
 }
 
 /**
- * Safari / iOS / Android / in-app WebViews crash on heavy WebGL.
- * Use a lighter GPU profile that keeps the same look.
+ * Safari / iOS / Android: lighter GPU profile that keeps the same look.
+ * In-app browsers should use shouldAvoidWebGL() instead (no Three.js at all).
  */
 export function needsLiteGpu(): boolean {
   if (typeof window === "undefined") return true;
-  if (isInAppBrowser()) return true;
   if (isIOS()) return true;
   if (isAndroid()) return true;
-  // Low-memory hint (Safari iOS 15+)
   const mem = (navigator as Navigator & { deviceMemory?: number }).deviceMemory;
   if (typeof mem === "number" && mem > 0 && mem <= 4) return true;
   return false;

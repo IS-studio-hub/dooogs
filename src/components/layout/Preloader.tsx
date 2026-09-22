@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { DooogsLogo } from "@/components/layout/DooogsLogo";
+import { isInAppBrowser } from "@/lib/in-app-browser";
 
 export function Preloader() {
   const [done, setDone] = useState(false);
@@ -9,19 +10,31 @@ export function Preloader() {
 
   useEffect(() => {
     document.documentElement.classList.add("is-first-loading", "is-loading");
-    const quick =
-      typeof window !== "undefined" &&
-      sessionStorage.getItem("dooogs.quickpreload") === "1";
-    const delay = quick ? 400 : 1200;
+    const inApp = isInAppBrowser();
+    let quick = false;
+    try {
+      quick = sessionStorage.getItem("dooogs.quickpreload") === "1";
+    } catch {
+      /* ignore */
+    }
+    // Facebook WebViews: finish preload ASAP so chat is usable
+    const delay = inApp ? 180 : quick ? 400 : 1200;
 
     const t = window.setTimeout(() => {
       setDone(true);
       document.documentElement.classList.remove("is-first-loading", "is-loading");
       document.documentElement.classList.add("is-loaded", "is-ready");
-      sessionStorage.setItem("dooogs.quickpreload", "1");
+      try {
+        sessionStorage.setItem("dooogs.quickpreload", "1");
+      } catch {
+        /* ignore */
+      }
     }, delay);
 
-    const hide = window.setTimeout(() => setHidden(true), delay + 900);
+    const hide = window.setTimeout(
+      () => setHidden(true),
+      delay + (inApp ? 200 : 900)
+    );
 
     return () => {
       window.clearTimeout(t);
