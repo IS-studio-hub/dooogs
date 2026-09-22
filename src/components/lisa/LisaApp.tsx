@@ -10,7 +10,7 @@ import {
   type LisaModel,
   type Locale,
 } from "@/lib/lisa-types";
-import { speakDooogs, unlockDooogsAudio } from "@/lib/dooogs-voice";
+import { speakDooogs, unlockDooogsAudio, stripDialogHtml } from "@/lib/dooogs-voice";
 import { withBase } from "@/lib/base-path";
 import { runDogChatTurn, type ChatMessage } from "@/lib/dog-chat-engine";
 import { offlineDogReply } from "@/lib/dog-offline";
@@ -138,11 +138,12 @@ export function LisaApp({
       voiceStopRef.current?.();
       const ambient = audioRef.current;
       setSpeaking(true);
-      // LinkedIn / in-app WebViews can hang on audio — never leave UI locked.
+      // Scale with reply length — fixed 30s was cutting long answers mid-sentence
+      const approx = stripDialogHtml(clean).length;
       const speakWatchdog = window.setTimeout(() => {
         voiceStopRef.current?.();
         setSpeaking(false);
-      }, 30_000);
+      }, Math.min(180_000, Math.max(25_000, 8_000 + approx * 75)));
       const { stop, done } = speakDooogs(clean, locale, {
         onStart: () => {
           if (ambient) ambient.volume = 0.06;

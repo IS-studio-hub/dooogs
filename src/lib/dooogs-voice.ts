@@ -37,16 +37,49 @@ export function forSpokenVoice(html: string): string {
     .replace(/\bi\.e\./gi, "that is")
     .replace(/\s+/g, " ")
     .trim();
-  if (text.length > 900) {
-    const cut = text.slice(0, 880);
+  // Match TTS server cap — don't cut the reply in half for speech
+  if (text.length > 1800) {
+    const cut = text.slice(0, 1780);
     const lastStop = Math.max(
       cut.lastIndexOf(". "),
       cut.lastIndexOf("! "),
       cut.lastIndexOf("? ")
     );
-    text = (lastStop > 300 ? cut.slice(0, lastStop + 1) : cut).trim();
+    text = (lastStop > 400 ? cut.slice(0, lastStop + 1) : cut).trim();
   }
   return text;
+}
+
+/** Split into short phrases so each TTS clip is one clean MP3 (avoids early `ended`). */
+function splitSpeakChunks(text: string, maxLen = 160): string[] {
+  const clean = text.replace(/\s+/g, " ").trim();
+  if (!clean) return [];
+  const sentences =
+    clean.match(/[^.!?]+[.!?]+|[^.!?]+$/g)?.map((s) => s.trim()) ?? [clean];
+  const out: string[] = [];
+  let buf = "";
+  for (const s of sentences) {
+    if ((buf + " " + s).trim().length <= maxLen) {
+      buf = (buf + " " + s).trim();
+    } else {
+      if (buf) out.push(buf);
+      if (s.length <= maxLen) {
+        buf = s;
+      } else {
+        for (let i = 0; i < s.length; i += maxLen) {
+          out.push(s.slice(i, i + maxLen));
+        }
+        buf = "";
+      }
+    }
+  }
+  if (buf) out.push(buf);
+  return out;
+}
+
+function speechBudgetMs(text: string): number {
+  // ~14 chars/sec spoken + headroom for network/TTS
+  return Math.min(180_000, Math.max(20_000, 8_000 + text.length * 75));
 }
 
 function getSharedAudio(): HTMLAudioElement {
@@ -191,12 +224,7 @@ async function speakWithBrowser(
 
   window.speechSynthesis.cancel();
 
-  const parts =
-    text
-      .match(/[^.!?]+[.!?]+|[^.!?]+$/g)
-      ?.map((s) => s.trim())
-      .filter(Boolean) ?? [text];
-
+  const parts = splitSpeakChunks(text, 220);
   const voice = pickBrowserVoice(locale);
   opts?.onStart?.();
 
@@ -226,7 +254,8 @@ async function speakWithBrowser(
         };
         utter.onend = finish;
         utter.onerror = finish;
-        window.setTimeout(finish, Math.min(20000, 2000 + chunk.length * 80));
+        // Per-chunk budget — long enough to finish, not forever
+        window.setTimeout(finish, Math.min(45_000, 2500 + chunk.length * 90));
         window.speechSynthesis.speak(utter);
         window.setTimeout(() => {
           try {
@@ -246,14 +275,11 @@ async function speakWithBrowser(
 
 async function speakWithSharedMp3(
   blob: Blob,
-  signal: { stopped: boolean },
-  opts?: { onStart?: () => void; onEnd?: () => void }
+  signal: { stopped: boolean }
 ): Promise<boolean> {
   if (signal.stopped) return false;
   const audio = getSharedAudio();
   const objectUrl = URL.createObjectURL(blob);
-  // In-app browsers (LinkedIn etc.) often never fire `ended` — never wait forever.
-  const PLAYBACK_TIMEOUT_MS = 20_000;
   let timer = 0;
   try {
     audio.onended = null;
@@ -263,14 +289,14 @@ async function speakWithSharedMp3(
     audio.load();
     audio.currentTime = 0;
     audio.volume = 1;
-    opts?.onStart?.();
+
     const playPromise = audio.play();
     await Promise.race([
       playPromise,
       new Promise<never>((_, reject) => {
         timer = window.setTimeout(
           () => reject(new Error("audio_play_timeout")),
-          4_000
+          5_000
         );
       }),
     ]);
@@ -285,18 +311,44 @@ async function speakWithSharedMp3(
         if (err) reject(err);
         else resolve();
       };
+
+      const armTimeout = () => {
+        window.clearTimeout(timer);
+        const dur = audio.duration;
+        // Wait for the real clip length (+ buffer). Never use a flat 20s cut-off.
+        const ms =
+          Number.isFinite(dur) && dur > 0
+            ? Math.min(90_000, Math.max(6_000, dur * 1000 + 2_500))
+            : Math.min(90_000, 6_000 + blob.size * 0.12);
+        timer = window.setTimeout(() => {
+          try {
+            // Near the end → treat as done; otherwise fail this chunk
+            if (
+              Number.isFinite(audio.duration) &&
+              audio.duration > 0 &&
+              audio.currentTime >= audio.duration - 0.4
+            ) {
+              finish();
+              return;
+            }
+            audio.pause();
+          } catch {
+            /* ignore */
+          }
+          finish(new Error("audio_ended_timeout"));
+        }, ms);
+      };
+
       audio.onended = () => finish();
       audio.onerror = () => finish(new Error("audio_error"));
-      timer = window.setTimeout(() => {
-        try {
-          audio.pause();
-        } catch {
-          /* ignore */
-        }
-        finish(new Error("audio_ended_timeout"));
-      }, PLAYBACK_TIMEOUT_MS);
+      if (Number.isFinite(audio.duration) && audio.duration > 0) {
+        armTimeout();
+      } else {
+        audio.addEventListener("loadedmetadata", armTimeout, { once: true });
+        // Fallback if metadata never arrives
+        timer = window.setTimeout(armTimeout, 1_200);
+      }
     });
-    opts?.onEnd?.();
     return true;
   } catch {
     try {
@@ -315,7 +367,7 @@ async function fetchTtsBlob(
   text: string,
   locale: Locale,
   signal: AbortSignal,
-  timeoutMs = 8000
+  timeoutMs = 12_000
 ): Promise<Blob | null> {
   const timeout = new AbortController();
   const onAbort = () => timeout.abort();
@@ -332,7 +384,7 @@ async function fetchTtsBlob(
     const ct = res.headers.get("content-type") || "";
     if (ct.includes("json")) return null;
     const blob = await res.blob();
-    if (blob.size < 500) return null;
+    if (blob.size < 400) return null;
     return blob;
   } catch {
     return null;
@@ -344,8 +396,7 @@ async function fetchTtsBlob(
 
 /**
  * Speak a Dooogs! reply.
- * Prefer shared MP3 TTS (works across devices once unlocked);
- * fall back to browser speech if TTS is slow or fails.
+ * Plays short TTS clips in sequence (reliable duration) with browser fallback.
  */
 export function speakDooogs(
   html: string,
@@ -388,31 +439,42 @@ export function speakDooogs(
 
     const hardCap = window.setTimeout(() => {
       if (!ended) stop();
-    }, 28_000);
+    }, speechBudgetMs(text));
 
     try {
-      const blob = await fetchTtsBlob(text, locale, abort.signal, 6000);
-      if (blob && !signal.stopped) {
-        const played = await speakWithSharedMp3(blob, signal, {
-          onStart: opts?.onStart,
-          onEnd: endOnce,
-        });
-        if (played || signal.stopped) return;
+      const chunks = splitSpeakChunks(text, 160);
+      if (!chunks.length) return;
+
+      opts?.onStart?.();
+      let spokenAny = false;
+
+      for (let i = 0; i < chunks.length; i++) {
+        if (signal.stopped) break;
+        const chunk = chunks[i]!;
+        const blob = await fetchTtsBlob(chunk, locale, abort.signal, 14_000);
+        if (blob && !signal.stopped) {
+          const played = await speakWithSharedMp3(blob, signal);
+          if (played) {
+            spokenAny = true;
+            continue;
+          }
+        }
+        if (signal.stopped) break;
+        // Per-chunk browser fallback so one bad MP3 doesn't kill the rest
+        const ok = await speakWithBrowser(chunk, locale, signal);
+        if (ok) spokenAny = true;
+        else if (!spokenAny && i === chunks.length - 1) {
+          opts?.onError?.();
+        }
       }
 
-      if (signal.stopped) return;
-
-      const ok = await speakWithBrowser(text, locale, signal, {
-        onStart: opts?.onStart,
-        onEnd: endOnce,
-      });
-      if (!ok && !signal.stopped && !ended) {
-        opts?.onError?.();
-        endOnce();
+      if (!spokenAny && !signal.stopped) {
+        const ok = await speakWithBrowser(text, locale, signal);
+        if (!ok) opts?.onError?.();
       }
     } finally {
       window.clearTimeout(hardCap);
-      if (!ended) endOnce();
+      endOnce();
     }
   })();
 
