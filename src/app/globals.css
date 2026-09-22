@@ -1337,6 +1337,13 @@ html:not(.has-menu-opened) .c-menu {
   margin: 0;
 }
 
+.c-inapp_hint {
+  margin: 0.45rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: rgba(244, 244, 242, 0.78);
+}
+
 .c-inapp_actions {
   display: flex;
   flex-wrap: wrap;
