@@ -121,6 +121,15 @@ export function isWeakDogReply(userText: string, replyHtml: string): boolean {
     return true;
   }
 
+  // Generic “I’m Dooogs!” intro — never treat as a real answer
+  if (
+    /i('|’)?m dooogs|je suis dooogs|your guide to dogs|guide races & chiens|ask about any breed|pose-moi une race/i.test(
+      reply
+    )
+  ) {
+    return true;
+  }
+
   // Mostly questions, little info
   if (qMarks >= 2 && reply.length < 220 && !hasSubstance) return true;
 

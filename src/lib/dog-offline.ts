@@ -40,9 +40,21 @@ const BREEDS: Record<
     fr: `Le Beagle est un chien courant joyeux — mené par le nez, curieux, avec sa voix typique.<br><br>Racines de chasse au lièvre en Grande-Bretagne; compagnon et chien de détection dans le monde.<br><br>Balades « snif », jardin sécurisé. Motivé par la nourriture, attention au poids. Pas de chocolat, raisin, xylitol.<br><br>Expos Hound, meutes, clubs Beagle.`,
   },
   collie: {
-    keys: ["border collie", "border"],
-    en: `Border Collies are elite herding athletes — intense focus, stare, and drive.<br><br>Bred on the England–Scotland border for sheep; famous in trials and dog sports worldwide.<br><br>They need a real job (herding, agility, advanced training). Under-exercised Collies invent chaos. Balanced diet for high activity; avoid toxic human foods.<br><br>Watch sheepdog trials, herding clinics, and Border Collie club events.`,
-    fr: `Le Border Collie est un athlète de troupeau — focus intense, regard, drive.<br><br>Élevé à la frontière anglo-écossaise; célèbre en concours et sports canins.<br><br>Il lui faut un vrai job (troupeau, agility, éducation avancée). Sans ça: chaos créatif. Alimentation d’athlète; évite aliments toxiques.<br><br>Sheepdog trials, stages de conduite, clubs Border Collie.`,
+    keys: [
+      "border collie",
+      "border coli",
+      "rough collie",
+      "smooth collie",
+      "scotch collie",
+      "collie",
+      "collies",
+      "coli",
+      "colie",
+      "colly",
+      "colies",
+    ],
+    en: `Collies — especially the Border Collie — are elite herding athletes with intense focus, stare, and drive. “Collie” can also mean the longer-coated Rough Collie (the classic Lassie look) or the Smooth Collie.<br><br>Border Collies were bred on the England–Scotland border for sheep; Rough/Smooth Collies share herding roots and are famous as loyal family companions.<br><br>Border Collies need a real job (herding, agility, advanced training) or they invent chaos. Rough Collies still want daily walks and mental work, with regular coat care.<br><br>Watch sheepdog trials, herding clinics, and Collie / Border Collie club events. Never chocolate, grapes, xylitol, or onions.`,
+    fr: `Les Collies — surtout le Border Collie — sont des athlètes de troupeau au focus intense. « Collie » peut aussi désigner le Rough Collie (look Lassie) ou le Smooth Collie.<br><br>Le Border Collie vient de la frontière anglo-écossaise; les Rough/Smooth ont aussi des racines de conduite et sont de fidèles compagnons.<br><br>Le Border a besoin d’un vrai job (troupeau, agility, éducation avancée) sinon: chaos. Le Rough veut marches + stimulation, et un toilettage régulier.<br><br>Sheepdog trials, clubs Collie / Border Collie. Jamais chocolat, raisin, xylitol, oignon.`,
   },
   dachshund: {
     keys: ["dachshund", "teckel", "wiener", "doxie"],
@@ -189,18 +201,122 @@ const BREEDS: Record<
   },
 };
 
-function detectBreed(text: string): keyof typeof BREEDS | null {
-  const t = text.toLowerCase();
-  for (const [id, meta] of Object.entries(BREEDS)) {
-    if (meta.keys.some((k) => t.includes(k))) return id as keyof typeof BREEDS;
+/** Common misspellings / nicknames → canonical key fragment */
+const BREED_TYPOS: Record<string, string> = {
+  coli: "collie",
+  colie: "collie",
+  colly: "collie",
+  colies: "collies",
+  lab: "labrador",
+  labs: "labrador",
+  shepard: "shepherd",
+  sheperd: "shepherd",
+  shephard: "shepherd",
+  gsd: "german shepherd",
+  pitbul: "pitbull",
+  pitbulls: "pit bull",
+  frenchie: "french bulldog",
+  yorky: "yorkshire",
+  huskie: "husky",
+  huskyes: "husky",
+  pomeraniann: "pomeranian",
+  pom: "pomeranian",
+  rotty: "rottweiler",
+  rottie: "rottweiler",
+  dobermann: "doberman",
+  dooberman: "doberman",
+  weimeraner: "weimaraner",
+  weimer: "weimaraner",
+  dachshunds: "dachshund",
+  dashchund: "dachshund",
+  doxie: "dachshund",
+  shitzu: "shih tzu",
+  shihtzu: "shih tzu",
+  malinoi: "malinois",
+  mali: "malinois",
+};
+
+function levenshtein(a: string, b: string): number {
+  if (a === b) return 0;
+  if (!a.length) return b.length;
+  if (!b.length) return a.length;
+  const row = new Array(b.length + 1);
+  for (let j = 0; j <= b.length; j++) row[j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    let prev = i - 1;
+    row[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const cur = row[j];
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      row[j] = Math.min(row[j] + 1, row[j - 1] + 1, prev + cost);
+      prev = cur;
+    }
   }
-  return null;
+  return row[b.length];
+}
+
+function normalizeQuery(text: string): string {
+  let t = text.toLowerCase().replace(/[^a-z0-9àâäéèêëïîôùûüç\s'-]/gi, " ");
+  // Expand known typos as whole words
+  t = t.replace(/\b([a-z]{3,})\b/g, (w) => BREED_TYPOS[w] || w);
+  return t.replace(/\s+/g, " ").trim();
+}
+
+function extractBreedCandidate(text: string): string | null {
+  const t = text.toLowerCase().trim();
+  const m =
+    t.match(
+      /(?:tell me about|about|what(?:'s| is)|who's|who is|parle[- ]moi (?:de|d')|c(?:'|’)est quoi|qu(?:'|’)est[- ]ce qu(?:'|’)un[e]?)\s+(.+)$/i
+    ) || t.match(/^([a-z][a-z\s-]{2,40})$/i);
+  if (!m?.[1]) return null;
+  return m[1]
+    .replace(/\?+$/, "")
+    .replace(/\b(the|a|an|dog|breed|race|chien|please|pls)\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function detectBreed(text: string): keyof typeof BREEDS | null {
+  const t = normalizeQuery(text);
+  // Longer keys first so "border collie" beats "collie"
+  const ranked = Object.entries(BREEDS)
+    .flatMap(([id, meta]) => meta.keys.map((k) => ({ id, key: k })))
+    .sort((a, b) => b.key.length - a.key.length);
+
+  for (const { id, key } of ranked) {
+    if (t.includes(key)) return id as keyof typeof BREEDS;
+  }
+
+  // Fuzzy: candidate phrase or individual tokens vs keys
+  const candidate = extractBreedCandidate(text);
+  const tokens = [
+    ...(candidate ? [normalizeQuery(candidate)] : []),
+    ...t.split(/\s+/).filter((w) => w.length >= 3),
+  ];
+
+  let best: { id: keyof typeof BREEDS; dist: number } | null = null;
+  for (const token of tokens) {
+    const expanded = BREED_TYPOS[token] || token;
+    for (const { id, key } of ranked) {
+      const keyWords = key.split(/\s+/);
+      for (const kw of [key, ...keyWords]) {
+        if (kw.length < 3) continue;
+        const dist = levenshtein(expanded, kw);
+        const maxDist = kw.length <= 4 ? 1 : kw.length <= 7 ? 1 : 2;
+        if (dist <= maxDist && (!best || dist < best.dist)) {
+          best = { id: id as keyof typeof BREEDS, dist };
+        }
+      }
+    }
+  }
+  return best && best.dist <= 2 ? best.id : null;
 }
 
 function isOffTopic(text: string): boolean {
-  const t = text.toLowerCase();
+  const t = normalizeQuery(text);
+  if (detectBreed(text)) return false;
   const doggy =
-    /dog|chien|breed|race|puppy|chiot|canine|labrador|poodle|caniche|shepherd|berger|beagle|collie|teckel|dachshund|golden|frenchie|bouledogue|husky|shiba|bulldog|yorkie|yorkshire|boxer|rott|aussie|australian|corgi|maltese|akita|pitbull|pit bull|pittie|stafford|amstaff|staffy|staffie|bully|akc|fci|groom|toilet|train|éduc|walk|promenade|bark|aboie|leash|laisse|vet|véto|kibble|croquette|toxic|chocolat|xylitol|tell me about|parle[- ]moi|c’est quoi|c'est quoi|what about|about the|chihuahua|malinois|dane|newfoundland|bernese|cavalier|shih tzu|pomeranian|whippet|greyhound|doberman|samoyed|russell|weimaraner|mastiff|pointer/.test(
+    /dog|chien|breed|race|puppy|chiot|canine|labrador|poodle|caniche|shepherd|berger|beagle|collie|coli|teckel|dachshund|golden|frenchie|bouledogue|husky|shiba|bulldog|yorkie|yorkshire|boxer|rott|aussie|australian|corgi|maltese|akita|pitbull|pit bull|pittie|stafford|amstaff|staffy|staffie|bully|akc|fci|groom|toilet|train|éduc|walk|promenade|bark|aboie|leash|laisse|vet|véto|kibble|croquette|toxic|chocolat|xylitol|tell me about|parle[- ]moi|c’est quoi|c'est quoi|what about|about the|chihuahua|malinois|dane|newfoundland|bernese|cavalier|shih tzu|pomeranian|whippet|greyhound|doberman|samoyed|russell|weimaraner|mastiff|pointer/.test(
       t
     );
   return !doggy;
