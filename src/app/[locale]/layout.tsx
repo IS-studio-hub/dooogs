@@ -3,6 +3,7 @@ import { Header } from "@/components/layout/Header";
 import { HtmlLang } from "@/components/layout/HtmlLang";
 import { InAppBrowserBanner } from "@/components/layout/InAppBrowserBanner";
 import { Preloader } from "@/components/layout/Preloader";
+import { ViewportLock } from "@/components/layout/ViewportLock";
 import type { Locale } from "@/lib/lisa-types";
 import { notFound } from "next/navigation";
 
@@ -26,6 +27,7 @@ export default async function LocaleLayout({
 
   return (
     <>
+      <ViewportLock />
       <a className="c-skip-link" href="#main-content">
         {skipLabel}
       </a>
