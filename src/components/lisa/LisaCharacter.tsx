@@ -8,7 +8,7 @@ import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment
 import { RectAreaLightUniformsLib } from "three/examples/jsm/lights/RectAreaLightUniformsLib.js";
 
 import { withBase } from "@/lib/base-path";
-import { isInAppBrowser, needsLiteGpu } from "@/lib/in-app-browser";
+import { isInAppBrowser } from "@/lib/in-app-browser";
 
 export type CharacterClip = "idle" | "talk" | "wave";
 
@@ -87,8 +87,9 @@ export function LisaCharacter({
     const mount = mountRef.current;
     if (!mount) return;
 
-    // Safari / iOS / Android: same look, far less GPU — prevents “problem repeatedly occurred”
-    const lite = needsLiteGpu() || isInAppBrowser();
+    // In-app browsers never mount this component (see shouldAvoidWebGL).
+    // Keep a lite flag only as a safety net if detection misses.
+    const lite = isInAppBrowser();
 
     try {
       if (!lite) RectAreaLightUniformsLib.init();
@@ -101,7 +102,7 @@ export function LisaCharacter({
       renderer = new THREE.WebGLRenderer({
         antialias: !lite,
         alpha: false,
-        powerPreference: "default",
+        powerPreference: lite ? "default" : "high-performance",
         stencil: false,
         depth: true,
         failIfMajorPerformanceCaveat: false,
@@ -116,10 +117,6 @@ export function LisaCharacter({
     renderer.toneMappingExposure = lite ? 1 : 1.12;
     renderer.shadowMap.enabled = !lite;
     if (!lite) renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    // Cap drawing buffer on mobile Safari (huge crash saver)
-    if (lite) {
-      renderer.setPixelRatio(1);
-    }
     renderer.domElement.style.touchAction = "none";
     mount.appendChild(renderer.domElement);
 
@@ -395,7 +392,7 @@ export function LisaCharacter({
     const resize = () => {
       const w = mount.clientWidth || window.innerWidth;
       const h = mount.clientHeight || window.innerHeight;
-      renderer.setPixelRatio(lite ? 1 : Math.min(window.devicePixelRatio || 1, 1.75));
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, lite ? 1 : 2));
       renderer.setSize(w, h, false);
       camera.aspect = w / Math.max(h, 1);
       camera.updateProjectionMatrix();
